@@ -327,13 +327,10 @@ def _classify_suggestion(text: str) -> tuple[str, list[str], str | None]:
         for tag, keywords in IMPLEMENTED_CAPABILITY_RULES
         if any(keyword in lowered for keyword in keywords)
     ]
-    if tags:
-        return "implemented", sorted(tags), None
-
     for milestone, keywords in MILESTONE_RULES:
         if any(keyword in lowered for keyword in keywords):
-            return "planned", [], milestone
-    return "planned", [], "general-backlog"
+            return "planned", sorted(tags), milestone
+    return "planned", sorted(tags), "general-backlog"
 
 
 def _stable_item_id(prefix: str, text: str) -> str:
@@ -342,7 +339,7 @@ def _stable_item_id(prefix: str, text: str) -> str:
 
 
 def _load_milestone_status_overrides(root: Path) -> dict[str, str]:
-    """Load explicit implemented suggestion IDs from milestone status files."""
+    """Load historical implementation claims, never verification evidence."""
     overrides: dict[str, str] = {}
     milestone_dir = root / "implementation" / "milestones"
     if not milestone_dir.exists():
@@ -395,20 +392,18 @@ def _aggregate_items(
         )
         collapsed_refs = [{"rel_path": rel_path, "line": line} for rel_path, line in refs]
         item_id = str(entry["id"])
+        status, claims, milestone = _classify_suggestion(entry["text"])
         if prefix == "feat" and item_id in overrides:
-            milestone_name = overrides[item_id]
-            status = "implemented"
-            impl_tags = [f"milestone.{milestone_name}"]
-            milestone = None
-        else:
-            status, impl_tags, milestone = _classify_suggestion(entry["text"])
+            claims.append(f"milestone.{overrides[item_id]}")
 
         out_item = {
             "id": item_id,
             "normalized_text": normalized,
             "text": entry["text"],
             "status": status,
-            "implementation_tags": impl_tags,
+            "implementation_tags": [],
+            "implementation_claims": claims,
+            "verification_status": "unverified",
             "planned_milestone": milestone,
             "source_refs": collapsed_refs,
         }
@@ -452,7 +447,7 @@ def _build_milestone_summary(suggestions: list[dict[str, Any]]) -> tuple[list[di
                 "total_count": total,
                 "impact_weight": weight,
                 "impact_score": planned * weight,
-                "completion_pct": round((implemented / total * 100.0), 2) if total else 0.0,
+                "completion_pct": None,
                 "objective": MILESTONE_OBJECTIVES.get(milestone, ""),
             }
         )
@@ -503,6 +498,7 @@ def build_milestone_execution_plan(
 
     return {
         "schema_version": "1.0",
+        "artifact_kind": "generated-execution-plan",
         "generated_at": utcnow_iso(),
         "milestone": milestone,
         "objective": MILESTONE_OBJECTIVES.get(milestone, ""),
@@ -528,6 +524,7 @@ def build_milestone_execution_plan(
 def render_milestone_execution_markdown(plan: dict[str, Any]) -> str:
     """Render markdown execution checklist for a milestone plan."""
     lines = [
+        "<!-- aps-generated: discovery-output -->",
         f"# Milestone Execution Plan: {plan['milestone']}",
         "",
         f"- Generated at: `{plan['generated_at']}`",
@@ -553,6 +550,29 @@ def render_milestone_execution_markdown(plan: dict[str, Any]) -> str:
     for criterion in plan["exit_criteria"]:
         lines.append(f"- {criterion}")
     return "\n".join(lines) + "\n"
+
+
+LEGACY_GENERATED_PATHS = {
+    "implementation/docs-audit-report.json",
+    "implementation/docs-audit-roadmap.md",
+    "implementation/milestones/current-execution-plan.json",
+    "implementation/milestones/current-execution-plan.md",
+}
+
+
+def _is_generated_output(rel_path: str, text: str) -> bool:
+    """Keep generated artifacts as inventory, not discovery authority."""
+    if rel_path in LEGACY_GENERATED_PATHS or text.startswith("<!-- aps-generated: discovery-output -->"):
+        return True
+    if rel_path.endswith(".json"):
+        try:
+            data = json.loads(text)
+        except ValueError:
+            return False
+        return isinstance(data, dict) and data.get("artifact_kind") in {
+            "generated-docs-audit", "generated-execution-plan"
+        }
+    return False
 
 
 class DocsAuditService:
@@ -606,6 +626,8 @@ class DocsAuditService:
                 continue
             text = canonical.read_text(encoding="utf-8")
             rel_path = str(canonical.relative_to(root))
+            if _is_generated_output(rel_path, text):
+                continue
             suggestions, use_cases = _extract_items_from_text(text, rel_path)
             extracted_suggestions.extend(suggestions)
             extracted_use_cases.extend(use_cases)
@@ -625,7 +647,13 @@ class DocsAuditService:
         all_files_ingested = int(snapshot_stats["snapshot"]["doc_count"]) == len(file_manifest)
 
         report = {
-            "schema_version": "1.0",
+            "schema_version": "2.0",
+            "artifact_kind": "generated-docs-audit",
+            "verification_status": "unverified",
+            "unmatched_implementation_claims": {
+                key: value for key, value in status_overrides.items()
+                if key not in {item["id"] for item in aggregated_suggestions}
+            },
             "generated_at": utcnow_iso(),
             "root_path": str(root),
             "snapshot": {
@@ -681,7 +709,9 @@ def render_audit_markdown(report: dict[str, Any]) -> str:
     suggestion_items = report["suggestions"]["items"]
 
     lines = [
+        "<!-- aps-generated: discovery-output -->",
         "# Docs Audit Report",
+        "Discovery only: implementation is unverified; zero verified items is not zero progress.",
         "",
         f"- Generated at: `{report['generated_at']}`",
         f"- Root: `{report['root_path']}`",
@@ -705,7 +735,7 @@ def render_audit_markdown(report: dict[str, Any]) -> str:
         lines.append(
             f"- `{row['milestone_id']}` impact={row['impact_score']} "
             f"(planned={row['planned_count']}, implemented={row['implemented_count']}, "
-            f"completion={row['completion_pct']}%)"
+            "completion=unverified)"
         )
 
     lines.extend(["", "## Planned Milestones", ""])
