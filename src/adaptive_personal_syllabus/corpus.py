@@ -5,8 +5,11 @@ import csv
 import hashlib
 import json
 import mimetypes
+import os
 import re
+import stat
 import tomllib
+from contextlib import ExitStack
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -15,7 +18,6 @@ import yaml
 from .ledger import Ledger
 from .models import CorpusSnapshot
 from .storage import Storage, utcnow_iso
-
 
 SUPPORTED_EXTENSIONS = {
     ".md",
@@ -43,7 +45,10 @@ TEXT_EXTENSIONS = {
     ".rst",
 }
 
-SKIP_DIRECTORIES = {".git", ".venv", ".pytest_cache", "__pycache__"}
+SKIP_DIRECTORIES = {
+    ".git", ".venv", ".pytest_cache", "__pycache__", ".mypy_cache",
+    ".private", ".secrets", ".adaptive-syllabus",
+}
 
 
 FAMILY_BY_EXTENSION = {
@@ -80,19 +85,61 @@ def _should_skip(path: Path, root: Path) -> bool:
 
 
 def discover_documents(root: Path, exclude_paths: set[Path] | None = None) -> list[Path]:
-    """Discover supported document files under root, sorted deterministically."""
+    """Discover regular files; symlink aliases are not admitted sources."""
+    root = root.expanduser().resolve(strict=True)
     excluded = {p.expanduser().resolve() for p in (exclude_paths or set())}
+
+    def allowed(path: Path) -> bool:
+        if path.is_symlink() or _should_skip(path, root):
+            return False
+        resolved = path.resolve()
+        return resolved.is_relative_to(root) and not any(
+            resolved == item or item in resolved.parents for item in excluded
+        )
+
     files: list[Path] = []
-    for path in root.rglob("*"):
-        if not path.is_file():
-            continue
-        if path.resolve() in excluded:
-            continue
-        if _should_skip(path, root):
-            continue
-        if path.suffix.lower() in SUPPORTED_EXTENSIONS:
-            files.append(path)
+    for parent, dirs, names in os.walk(root, followlinks=False):
+        dirs[:] = sorted(name for name in dirs if allowed(Path(parent) / name))
+        for name in names:
+            path = Path(parent) / name
+            if path.suffix.lower() in SUPPORTED_EXTENSIONS and allowed(path) and path.is_file():
+                files.append(path)
     return sorted(files, key=lambda p: str(p.relative_to(root)))
+
+
+def _read_admitted_bytes(root: Path, path: Path) -> bytes:
+    """Open every component relative to a directory fd, refusing symlink races.
+
+    The input root is trusted and explicitly chosen. This is containment, not
+    content classification or protection against a hostile filesystem owner.
+    """
+    try:
+        relative = path.relative_to(root)
+        if not relative.parts or ".." in relative.parts or _should_skip(path, root):
+            raise ValueError("ERR_SOURCE_BOUNDARY: source is outside admission policy")
+        if not hasattr(os, "O_NOFOLLOW") or os.open not in os.supports_dir_fd:
+            raise ValueError("ERR_SOURCE_BOUNDARY: secure source opening is unsupported")
+        with ExitStack() as cleanup:
+            directory = os.open(root, os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW)
+            cleanup.callback(os.close, directory)
+            for part in relative.parts[:-1]:
+                directory = os.open(
+                    part, os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW, dir_fd=directory
+                )
+                cleanup.callback(os.close, directory)
+            source = os.open(
+                relative.name, os.O_RDONLY | os.O_NOFOLLOW | os.O_NONBLOCK, dir_fd=directory
+            )
+            cleanup.callback(os.close, source)
+            if not stat.S_ISREG(os.fstat(source).st_mode):
+                raise ValueError("ERR_SOURCE_BOUNDARY: source must be a regular file")
+            chunks = []
+            while chunk := os.read(source, 1024 * 1024):
+                chunks.append(chunk)
+            return b"".join(chunks)
+    except OSError as exc:
+        # Do not echo symlink targets or private filesystem paths.
+        raise ValueError("ERR_SOURCE_BOUNDARY: source could not be admitted safely") from exc
 
 
 def _decode_text(data: bytes, path: Path) -> str:
@@ -200,7 +247,7 @@ class CorpusIngestor:
         self.ledger = ledger
 
     def _build_candidate(self, root: Path, path: Path) -> CandidateDocument:
-        data = path.read_bytes()
+        data = _read_admitted_bytes(root, path)
         ext = path.suffix.lower()
         text = None
         if ext in TEXT_EXTENSIONS:
