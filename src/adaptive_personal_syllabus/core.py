@@ -19,8 +19,8 @@ from .docs_audit import (
 from .generator import SyllabusGenerator
 from .hooks import HookRunner
 from .ledger import Ledger
-from .planner import Planner
 from .models import DifficultyLevel, LearnerProfile
+from .planner import Planner
 from .storage import DEFAULT_DB_PATH, DEFAULT_PROFILE_PATH, Storage
 
 

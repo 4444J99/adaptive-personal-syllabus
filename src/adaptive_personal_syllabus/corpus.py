@@ -16,7 +16,6 @@ from .ledger import Ledger
 from .models import CorpusSnapshot
 from .storage import Storage, utcnow_iso
 
-
 SUPPORTED_EXTENSIONS = {
     ".md",
     ".txt",
