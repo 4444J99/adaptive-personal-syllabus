@@ -52,8 +52,9 @@ def test_docs_audit_ingests_every_file_and_tracks_status(tmp_path: Path) -> None
     exercises_item = by_text["Add step-by-step exercises with incremental milestones"]
     ci_item = by_text["Define CI pipelines for kernel builds"]
 
-    assert hashing_item["status"] == "implemented"
-    assert "ledger.hash-chain-and-provenance" in hashing_item["implementation_tags"]
+    assert hashing_item["status"] == "planned"
+    assert hashing_item["verification_status"] == "unverified"
+    assert "ledger.hash-chain-and-provenance" in hashing_item["implementation_claims"]
     assert exercises_item["status"] == "planned"
     assert exercises_item["planned_milestone"] == "pedagogy-scaffolding"
     assert ci_item["status"] == "planned"
@@ -64,7 +65,7 @@ def test_docs_audit_ingests_every_file_and_tracks_status(tmp_path: Path) -> None
     assert report["milestones"]["recommended_start_milestone"] is not None
 
 
-def test_docs_audit_status_override_promotes_item_to_implemented(tmp_path: Path) -> None:
+def test_docs_audit_status_override_preserves_claim_without_promoting(tmp_path: Path) -> None:
     docs_root = tmp_path / "docs"
     docs_root.mkdir()
     _build_docs(docs_root)
@@ -86,6 +87,7 @@ def test_docs_audit_status_override_promotes_item_to_implemented(tmp_path: Path)
             "milestone: integration-observability-ci\n"
             "implemented_suggestion_ids:\n"
             f"  - {ci_item['id']}\n"
+            "  - feat-unknown\n"
         ),
         encoding="utf-8",
     )
@@ -94,8 +96,11 @@ def test_docs_audit_status_override_promotes_item_to_implemented(tmp_path: Path)
     promoted = next(
         item for item in second_report["suggestions"]["items"] if item["id"] == ci_item["id"]
     )
-    assert promoted["status"] == "implemented"
-    assert "milestone.integration-observability-ci" in promoted["implementation_tags"]
+    assert promoted["status"] == "planned"
+    assert promoted["verification_status"] == "unverified"
+    assert second_report["unmatched_implementation_claims"] == {"feat-unknown": "integration-observability-ci"}
+    assert all(row["completion_pct"] is None for row in second_report["milestones"]["summary"])
+    assert "milestone.integration-observability-ci" in promoted["implementation_claims"]
 
 
 def test_build_milestone_execution_plan_ranks_items(tmp_path: Path) -> None:
@@ -118,3 +123,22 @@ def test_build_milestone_execution_plan_ranks_items(tmp_path: Path) -> None:
     assert plan["milestone"] == "systems-kernel-runtime"
     assert plan["selected_item_count"] >= 1
     assert plan["selected_items"][0]["id"].startswith("feat-")
+
+
+def test_generated_reports_do_not_become_new_intentions(tmp_path: Path) -> None:
+    from adaptive_personal_syllabus.docs_audit import render_audit_markdown
+
+    root = tmp_path / "docs"
+    root.mkdir()
+    _build_docs(root)
+    storage = Storage(tmp_path / "audit.db")
+    service = DocsAuditService(storage, Ledger(storage))
+    first = service.audit(root=root, snapshot_name="first")
+    (root / "custom-report.md").write_text(render_audit_markdown(first))
+    legacy = root / "implementation" / "milestones"
+    legacy.mkdir(parents=True)
+    (legacy / "current-execution-plan.md").write_text("- Add invented output-only requirement.\n")
+    second = service.audit(root=root, snapshot_name="second")
+    assert second["suggestions"]["items"] == first["suggestions"]["items"]
+    assert second["snapshot"]["doc_count"] == 5
+    assert second["suggestions"]["implemented_count"] == 0
