@@ -1,16 +1,16 @@
 """Tests for adaptive-personal-syllabus."""
+from adaptive_personal_syllabus.generator import SyllabusGenerator
 from adaptive_personal_syllabus.models import (
     DifficultyLevel,
     LearnerProfile,
     LearningModule,
     LearningPath,
 )
-from adaptive_personal_syllabus.generator import SyllabusGenerator
 
 
 def test_learner_profile_defaults():
     profile = LearnerProfile(name="Test")
-    assert profile.level == DifficultyLevel.BEGINNER
+    assert profile.level == DifficultyLevel.UNASSESSED
     assert profile.organs_of_interest == []
     assert profile.progress_pct == 0.0
 

@@ -3,11 +3,10 @@ import json
 from pathlib import Path
 
 from adaptive_personal_syllabus.data_export import (
-    generate_sample_paths,
-    export_all,
     SAMPLE_PROFILES,
+    export_all,
+    generate_sample_paths,
 )
-
 
 SEED_DIR = Path(__file__).parent.parent.parent / "koinonia-db" / "seed"
 

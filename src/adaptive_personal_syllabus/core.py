@@ -1,7 +1,10 @@
 """Core module — CLI entry point for adaptive-personal-syllabus."""
+
 from __future__ import annotations
 
 import json
+import os
+import tempfile
 from pathlib import Path
 from typing import Any
 
@@ -19,8 +22,8 @@ from .docs_audit import (
 from .generator import SyllabusGenerator
 from .hooks import HookRunner
 from .ledger import Ledger
-from .planner import Planner
 from .models import DifficultyLevel, LearnerProfile
+from .planner import WINGS, Planner
 from .storage import DEFAULT_DB_PATH, DEFAULT_PROFILE_PATH, Storage
 
 
@@ -33,8 +36,8 @@ def cli() -> None:
 @click.option("--organs", required=True, help="Comma-separated organ codes (e.g., I,II,V)")
 @click.option(
     "--level",
-    type=click.Choice(["beginner", "intermediate", "advanced"]),
-    default="beginner",
+    type=click.Choice(["unassessed", "beginner", "intermediate", "advanced"]),
+    default="unassessed",
 )
 @click.option("--name", default="Learner", help="Learner name")
 @click.option("--format", "fmt", type=click.Choice(["text", "json", "md"]), default="text")
@@ -211,13 +214,25 @@ def profile() -> None:
 @click.option("--organs", default="I", show_default=True, help="Comma-separated organ codes.")
 @click.option(
     "--level",
-    type=click.Choice(["beginner", "intermediate", "advanced"]),
-    default="beginner",
+    type=click.Choice(["unassessed", "beginner", "intermediate", "advanced"]),
+    default="unassessed",
     show_default=True,
 )
 @click.option("--goals", default="", help="Comma-separated goals.")
 @click.option("--context", default="{}", help="JSON object with contextual metadata.")
 @click.option("--completed", default="", help="Comma-separated completed module IDs.")
+@click.option("--wing", "wings", multiple=True, type=click.Choice([w["wing_id"] for w in WINGS]))
+@click.option(
+    "--purpose",
+    type=click.Choice(["understand", "practice", "evaluate", "enjoy"]),
+    default="understand",
+)
+@click.option(
+    "--medium",
+    type=click.Choice(["written_or_spoken", "page", "audio", "practice", "mixed"]),
+    default="written_or_spoken",
+)
+@click.option("--phone-only", is_flag=True)
 @click.option(
     "--output",
     type=click.Path(path_type=Path),
@@ -237,6 +252,10 @@ def profile_init(
     goals: str,
     context: str,
     completed: str,
+    wings: tuple[str, ...],
+    purpose: str,
+    medium: str,
+    phone_only: bool,
     output: Path,
     db_path: Path,
 ) -> None:
@@ -257,6 +276,10 @@ def profile_init(
         "goals": [g.strip() for g in goals.split(",") if g.strip()],
         "context": context_obj,
         "completed_modules": [c.strip() for c in completed.split(",") if c.strip()],
+        "learning_purpose": purpose,
+        "medium": medium,
+        "access_conditions": {"phone_only": phone_only},
+        "output_policy": {"selected_wings": list(wings), "publication_authorized": False},
     }
 
     output = output.expanduser().resolve()
@@ -275,12 +298,27 @@ def profile_init(
         },
     )
 
-    click.echo(json.dumps({"schema_version": "1.0", "profile_path": str(output), "profile": profile_doc}, indent=2))
+    click.echo(
+        json.dumps(
+            {"schema_version": "1.0", "profile_path": str(output), "profile": profile_doc},
+            indent=2,
+        )
+    )
 
 
 @cli.group()
 def plan() -> None:
     """Plan generation commands."""
+
+
+def _render_assistant_example(encounter: dict[str, Any]) -> list[str]:
+    lines = ["Assistant explanation: " + encounter["self_contained_example"]]
+    if encounter.get("example_scope") == "independent_claim_inspection_not_topic_instruction":
+        lines.append(
+            "Scope: independent practice in inspecting a claim; "
+            "topic-specific instruction remains unverified."
+        )
+    return lines
 
 
 def _render_plan_text(plan_doc: dict[str, Any]) -> str:
@@ -293,6 +331,10 @@ def _render_plan_text(plan_doc: dict[str, Any]) -> str:
         lines.append(
             f"{m['seq']}. [{m['difficulty'][:3]}] {m['title']} ({m['organ']}, ~{m['estimated_hours']}h)"
         )
+        if "encounter" in m:
+            lines.extend(m["encounter"]["steps"])
+            lines.extend(_render_assistant_example(m["encounter"]))
+            lines.append("Optional: written, spoken, explanation, or no response now.")
     return "\n".join(lines)
 
 
@@ -314,10 +356,15 @@ def _render_plan_markdown(plan_doc: dict[str, Any]) -> str:
         lines.append(f"*{m['organ']} | {m['difficulty']} | ~{m['estimated_hours']}h*")
         lines.append("")
         if m["readings"]:
-            lines.append("**Readings**")
+            lines.append("**Optional reading candidates**")
             for reading in m["readings"]:
                 lines.append(f"- {reading}")
             lines.append("")
+        if "encounter" in m:
+            lines.append("**Assistant instruction**")
+            lines.extend("- " + step for step in m["encounter"]["steps"])
+            lines.extend(_render_assistant_example(m["encounter"]))
+            lines.append("Optional: written, spoken, explanation, or no response now.")
     return "\n".join(lines)
 
 
@@ -341,7 +388,7 @@ def _render_plan_markdown(plan_doc: dict[str, Any]) -> str:
     default=None,
 )
 def plan_generate(profile_path: Path, fmt: str, db_path: Path, seed_dir: Path | None) -> None:
-    """Generate a profile-aware syllabus plan using ingested corpus evidence."""
+    """Generate an optional learning plan with unverified corpus candidates."""
     storage = Storage(db_path)
     chain = Ledger(storage)
     planner = Planner(storage=storage, ledger=chain, seed_dir=seed_dir)
@@ -363,6 +410,266 @@ def plan_generate(profile_path: Path, fmt: str, db_path: Path, seed_dir: Path | 
         click.echo(_render_plan_text(plan_doc))
 
 
+@plan.command("show")
+@click.argument("plan_id", type=int)
+@click.option("--db-path", type=click.Path(path_type=Path), default=str(DEFAULT_DB_PATH))
+@click.option("--format", "fmt", type=click.Choice(["json", "text", "md"]), default="json")
+def plan_show(plan_id: int, db_path: Path, fmt: str) -> None:
+    """Retrieve an exact stored plan by database ID, including historical projections."""
+    doc = Storage(db_path).get_plan(plan_id)
+    if doc is None:
+        raise click.ClickException("Plan not found")
+    click.echo(
+        json.dumps(doc, indent=2)
+        if fmt == "json"
+        else _render_plan_markdown(doc)
+        if fmt == "md"
+        else _render_plan_text(doc)
+    )
+
+
+@plan.command("encounter")
+@click.argument("plan_id", type=int)
+@click.option("--module-id", default=None, help="Choose a module; defaults to the first.")
+@click.option(
+    "--route",
+    type=click.Choice(
+        [
+            "encounter",
+            "short_written",
+            "spoken_under_two_minutes",
+            "worked_explanation",
+            "no_response_now",
+        ]
+    ),
+    default="encounter",
+    show_default=True,
+)
+@click.option("--format", "fmt", type=click.Choice(["text", "json"]), default="text")
+@click.option("--db-path", type=click.Path(path_type=Path), default=str(DEFAULT_DB_PATH))
+def plan_encounter(
+    plan_id: int, module_id: str | None, route: str, fmt: str, db_path: Path
+) -> None:
+    """View one optional encounter or explanation without recording learner performance."""
+    doc = Storage(db_path).get_plan(plan_id)
+    if doc is None:
+        raise click.ClickException("Plan not found")
+    modules = doc["modules"]
+    module = next((m for m in modules if module_id is None or m["module_id"] == module_id), None)
+    if module is None:
+        raise click.ClickException("No matching module in this plan")
+    encounter = module.get("encounter")
+    if encounter is None:
+        raise click.ClickException("This historical plan has no stored encounter")
+
+    # Project once for both formats; never mutate the stored encounter.
+    encounter = dict(encounter)
+    prompts = {
+        "encounter": "Optional: engage with this encounter in your own way.",
+        "short_written": "Optional: write a short response in your own words.",
+        "spoken_under_two_minutes": "Optional: speak in your own words for under two minutes.",
+        "worked_explanation": "An explanation is available without assessment.",
+        "no_response_now": "No response is required. You can return to this encounter later.",
+    }
+    if route in {"no_response_now", "worked_explanation"}:
+        encounter["steps"] = []
+    if route == "no_response_now":
+        encounter["self_contained_example"] = ""
+    payload = {
+        "response_required": False,
+        "response_prompt": prompts[route],
+        "db_plan_id": plan_id,
+        "module_id": module["module_id"],
+        "title": module["title"],
+        "view_route": route,
+        "status": encounter["status"],
+        "assessment_status": module["adaptation"]["assessment_status"],
+        "performance_recorded": False,
+        "publication_status": "not_published",
+        "encounter": encounter,
+    }
+    if fmt == "json":
+        click.echo(json.dumps(payload, indent=2))
+        return
+
+    lines = [
+        module["title"],
+        "Prepared material; no learner response or result is recorded.",
+    ]
+    if encounter["steps"]:
+        lines.append("Assistant instruction:")
+        lines.extend(encounter["steps"])
+    if encounter["self_contained_example"]:
+        lines.extend(_render_assistant_example(encounter))
+    lines.append(payload["response_prompt"])
+    lines.append(encounter["completion"])
+    click.echo("\n".join(lines))
+
+
+
+def _write_artifact_exclusive(output: Path, data: bytes) -> None:
+    """Publish complete bytes atomically without replacing an existing path.
+
+    The temporary file shares the output filesystem. A failed write/fsync/link
+    leaves the requested output absent; hard-link creation fails on collisions.
+    This does not make the separate ledger append a filesystem transaction.
+    """
+    fd, temporary = tempfile.mkstemp(prefix=".aps-artifact-", dir=output.parent)
+    try:
+        with os.fdopen(fd, "wb", buffering=0) as stream:
+            remaining = memoryview(data)
+            while remaining:
+                written = os.write(stream.fileno(), remaining)
+                if written <= 0:
+                    raise OSError("Artifact write made no progress")
+                remaining = remaining[written:]
+            os.fsync(stream.fileno())
+        os.link(temporary, output)
+    finally:
+        Path(temporary).unlink(missing_ok=True)
+
+
+@plan.command("artifact")
+@click.argument("plan_id", type=int)
+@click.option("--wing", required=True, type=click.Choice([w["wing_id"] for w in WINGS]))
+@click.option("--output", required=True, type=click.Path(path_type=Path))
+@click.option("--db-path", type=click.Path(path_type=Path), default=str(DEFAULT_DB_PATH))
+def plan_artifact(plan_id: int, wing: str, output: Path, db_path: Path) -> None:
+    """Write an assistant-authored working sheet for one selected Wing; never publish."""
+    import hashlib
+
+    storage = Storage(db_path)
+    doc = storage.get_plan(plan_id)
+    if doc is None or wing not in doc.get("output_policy", {}).get("selected_wings", []):
+        raise click.ClickException("Wing is not selected in this plan")
+    lines = [
+        f"# {wing} working sheet",
+        "Assistant-authored scaffold; not learner-authored work.",
+        "This is a local artifact. No publication is authorized.",
+    ]
+    for module in doc["modules"]:
+        lines.extend(
+            [
+                "",
+                "## " + module["title"],
+                *module["encounter"]["steps"],
+                *_render_assistant_example(module["encounter"]),
+                "Learner words: [not supplied]",
+                "Source support: unverified",
+            ]
+        )
+    data = ("\n".join(lines) + "\n").encode()
+    try:
+        _write_artifact_exclusive(output, data)
+    except FileExistsError as exc:
+        raise click.ClickException("Output already exists; choose a new version") from exc
+    except OSError as exc:
+        raise click.ClickException(
+            f"Cannot write artifact to {output}: {exc.strerror}. "
+            "Choose a writable file path in an existing directory."
+        ) from exc
+    receipt = {
+        "plan_id": plan_id,
+        "wing": wing,
+        "path": str(output.resolve()),
+        "sha256": hashlib.sha256(data).hexdigest(),
+        "status": "generated_local",
+        "publication_authorized": False,
+    }
+    Ledger(storage).append("artifact.generate", receipt)
+    click.echo(json.dumps(receipt))
+
+
+@plan.command("authorize-publication")
+@click.argument("artifact", type=click.Path(path_type=Path, exists=True, dir_okay=False))
+@click.option("--destination", required=True)
+@click.option(
+    "--authorize", is_flag=True, required=True, help="Explicitly authorize these exact bytes."
+)
+@click.option("--db-path", type=click.Path(path_type=Path), default=str(DEFAULT_DB_PATH))
+def authorize_publication(
+    artifact: Path, destination: str, authorize: bool, db_path: Path
+) -> None:
+    """Record separate authorization for exact bytes and destination; performs no publication."""
+    import hashlib
+
+    if not destination.strip():
+        raise click.ClickException("--destination must name the intended destination")
+    try:
+        data = artifact.read_bytes()
+    except OSError as exc:
+        raise click.ClickException(f"Cannot read artifact: {exc.strerror}") from exc
+    receipt = {
+        "artifact_sha256": hashlib.sha256(data).hexdigest(),
+        "destination": destination,
+        "publication_authorized": authorize,
+        "publication_status": "not_published",
+    }
+    Ledger(Storage(db_path)).append("artifact.publication_authorization", receipt)
+    click.echo(json.dumps(receipt))
+
+
+@corpus.command("passage")
+@click.argument("document_id", type=int)
+@click.argument("chunk_index", type=int)
+@click.option("--db-path", type=click.Path(path_type=Path), default=str(DEFAULT_DB_PATH))
+def corpus_passage(document_id: int, chunk_index: int, db_path: Path) -> None:
+    """Display exact stored passage as data, never executable instructions."""
+    passage = Storage(db_path).get_passage(document_id, chunk_index)
+    if passage is None:
+        raise click.ClickException("Unavailable or uninspected passage")
+    click.echo(json.dumps(passage, indent=2))
+
+
+@corpus.command("judge")
+@click.argument("record_path", type=click.Path(path_type=Path, exists=True, dir_okay=False))
+@click.option(
+    "--human-reviewed", is_flag=True, help="Attest that the named human inspected this passage."
+)
+@click.option("--db-path", type=click.Path(path_type=Path), default=str(DEFAULT_DB_PATH))
+def corpus_judge(record_path: Path, human_reviewed: bool, db_path: Path) -> None:
+    """Append an attributed claim judgment; never infer human review from retrieval."""
+    try:
+        record = json.loads(record_path.read_text())
+        if not isinstance(record, dict):
+            raise ValueError("Judgment must be an object")  # noqa: TRY004
+        if record.get("reviewer_status") == "human_reviewed" and not human_reviewed:
+            raise ValueError("Human review requires explicit --human-reviewed attestation")
+        identifier = Storage(db_path).record_source_judgment(record)
+    except (ValueError, KeyError, TypeError) as exc:
+        raise click.ClickException(str(exc)) from exc
+    click.echo(json.dumps({"judgment_id": identifier, "record": record}))
+
+
+@corpus.command("support")
+@click.argument("document_id", type=click.IntRange(min=1), required=False)
+@click.option(
+    "--snapshot-id",
+    type=click.IntRange(min=1),
+    default=None,
+    help="Inspect judgments across a snapshot.",
+)
+@click.option("--claim", required=True)
+@click.option("--db-path", type=click.Path(path_type=Path), default=str(DEFAULT_DB_PATH))
+def corpus_support(
+    document_id: int | None, snapshot_id: int | None, claim: str, db_path: Path
+) -> None:
+    """Inspect all judgments for an exact claim, retaining contradictions."""
+    from .support import summarize_judgments
+
+    if (document_id is None) == (snapshot_id is None):
+        raise click.ClickException("Choose one document ID or --snapshot-id")
+    click.echo(
+        json.dumps(
+            summarize_judgments(
+                Storage(db_path).list_source_judgments(document_id, snapshot_id=snapshot_id),
+                claim,
+            ),
+            indent=2,
+        )
+    )
+
+
 @cli.group()
 def chamber() -> None:
     """Chamber hook orchestration commands."""
@@ -379,7 +686,9 @@ def chamber() -> None:
     default=str(DEFAULT_DB_PATH),
     show_default=True,
 )
-def chamber_run(hook_name: str, dry_run: bool, context: str, plan_id: int | None, db_path: Path) -> None:
+def chamber_run(
+    hook_name: str, dry_run: bool, context: str, plan_id: int | None, db_path: Path
+) -> None:
     """Run a registered chamber hook (no-op defaults in MVP1)."""
     try:
         context_obj = json.loads(context)
@@ -503,7 +812,9 @@ def docs_audit(
     default=None,
     help="Milestone ID to execute (defaults to report-recommended start milestone).",
 )
-@click.option("--limit", type=int, default=20, show_default=True, help="Maximum prioritized items.")
+@click.option(
+    "--limit", type=int, default=20, show_default=True, help="Maximum prioritized items."
+)
 @click.option("--format", "fmt", type=click.Choice(["json", "md"]), default="json")
 @click.option(
     "--write-json",
@@ -546,7 +857,9 @@ def docs_execute_milestone(
     if not selected_milestone:
         raise click.ClickException("No planned milestone items found in audit report.")
 
-    plan = build_milestone_execution_plan(report, milestone=selected_milestone, limit=max(1, limit))
+    plan = build_milestone_execution_plan(
+        report, milestone=selected_milestone, limit=max(1, limit)
+    )
     markdown = render_milestone_execution_markdown(plan)
 
     if write_json is not None:

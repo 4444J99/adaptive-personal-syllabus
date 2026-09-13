@@ -1,13 +1,14 @@
 """SQLite storage layer for corpus, planning, hooks, and ledger data."""
+
 from __future__ import annotations
 
 import json
 import sqlite3
+from collections.abc import Iterator, Sequence
 from contextlib import contextmanager
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
-from typing import Any, Iterator, Sequence
-
+from typing import Any
 
 DEFAULT_DATA_DIR = Path.home() / ".adaptive-syllabus"
 DEFAULT_DB_PATH = DEFAULT_DATA_DIR / "adaptive_syllabus.db"
@@ -16,7 +17,7 @@ DEFAULT_PROFILE_PATH = DEFAULT_DATA_DIR / "profile.json"
 
 def utcnow_iso() -> str:
     """UTC timestamp in ISO-8601 format."""
-    return datetime.now(tz=timezone.utc).replace(microsecond=0).isoformat()
+    return datetime.now(tz=UTC).replace(microsecond=0).isoformat()
 
 
 class Storage:
@@ -59,7 +60,9 @@ class Storage:
         if unbound_docs == 0 and unbound_plans == 0:
             return
 
-        latest_snapshot = conn.execute("SELECT id FROM snapshots ORDER BY id DESC LIMIT 1").fetchone()
+        latest_snapshot = conn.execute(
+            "SELECT id FROM snapshots ORDER BY id DESC LIMIT 1"
+        ).fetchone()
         if latest_snapshot:
             snapshot_id = int(latest_snapshot["id"])
         else:
@@ -109,6 +112,15 @@ class Storage:
         )
         conn.execute("CREATE INDEX IF NOT EXISTS idx_plans_snapshot_id ON plans(snapshot_id)")
 
+        conn.execute("""CREATE TABLE IF NOT EXISTS plan_payloads (
+            plan_id INTEGER PRIMARY KEY REFERENCES plans(id),
+            fingerprint_version INTEGER NOT NULL,
+            fingerprint_sha256 TEXT NOT NULL,
+            payload_json TEXT NOT NULL)""")
+        conn.execute("""CREATE TABLE IF NOT EXISTS source_judgments (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            document_id INTEGER NOT NULL REFERENCES documents(id),
+            payload_json TEXT NOT NULL)""")
         self._backfill_snapshot_bindings(conn)
 
     def initialize_schema(self) -> None:
@@ -395,7 +407,10 @@ class Storage:
             INSERT INTO document_chunks(document_id, chunk_index, heading_path, text, token_estimate)
             VALUES (?, ?, ?, ?, ?)
             """,
-            [(document_id, chunk_index, heading_path, text, token_estimate) for chunk_index, heading_path, text, token_estimate in chunks],
+            [
+                (document_id, chunk_index, heading_path, text, token_estimate)
+                for chunk_index, heading_path, text, token_estimate in chunks
+            ],
         )
         return len(chunks)
 
@@ -532,6 +547,22 @@ class Storage:
             ).fetchall()
         return [str(row["sha256"]) for row in rows]
 
+    def list_document_chunks(self, *, snapshot_id: int) -> list[dict[str, Any]]:
+        """Return inspectable text chunks for bounded local source selection."""
+        with self.connection() as conn:
+            rows = conn.execute(
+                """
+                SELECT d.snapshot_id, d.id AS document_id, d.canonical_path, d.rel_path, d.sha256,
+                       c.chunk_index, c.heading_path, c.text
+                FROM document_chunks c
+                JOIN documents d ON d.id = c.document_id
+                WHERE d.snapshot_id = ?
+                ORDER BY d.canonical_path, c.chunk_index
+                """,
+                (snapshot_id,),
+            ).fetchall()
+        return [dict(row) for row in rows]
+
     def insert_profile(
         self,
         name: str,
@@ -626,7 +657,9 @@ class Storage:
         if conn is None:
             with self.connection() as db_conn:
                 return self.last_ledger_hash(conn=db_conn)
-        row = conn.execute("SELECT event_hash FROM ledger_events ORDER BY id DESC LIMIT 1").fetchone()
+        row = conn.execute(
+            "SELECT event_hash FROM ledger_events ORDER BY id DESC LIMIT 1"
+        ).fetchone()
         return str(row["event_hash"]) if row else ""
 
     def append_ledger_event(
@@ -662,3 +695,149 @@ class Storage:
         with self.connection() as conn:
             rows = conn.execute("SELECT * FROM ledger_events ORDER BY id ASC").fetchall()
         return [dict(r) for r in rows]
+
+    def insert_complete_plan(self, plan: dict[str, Any]) -> int:
+        """Atomically persist both compatible projections and the exact versioned payload."""
+        json.dumps(plan, allow_nan=False)
+        with self.connection() as conn:
+            profile = plan["profile"]
+            cur = conn.execute(
+                "INSERT INTO profiles(name,level,goals_json,context_json,created_at) VALUES(?,?,?,?,?)",
+                (
+                    profile["name"],
+                    profile["level"],
+                    json.dumps(profile["goals"]),
+                    json.dumps(profile["context"]),
+                    utcnow_iso(),
+                ),
+            )
+            profile_id = self._cursor_lastrowid(cur)
+            cur = conn.execute(
+                "INSERT INTO plans(profile_id,snapshot_id,title,total_hours,module_count,created_at) VALUES(?,?,?,?,?,?)",
+                (
+                    profile_id,
+                    plan["snapshot"]["id"],
+                    plan["title"],
+                    plan["totals"]["total_hours"],
+                    plan["totals"]["module_count"],
+                    utcnow_iso(),
+                ),
+            )
+            plan_id = self._cursor_lastrowid(cur)
+            for m in plan["modules"]:
+                conn.execute(
+                    "INSERT INTO plan_modules(plan_id,seq,module_id,title,organ,difficulty,readings_json,questions_json,estimated_hours) VALUES(?,?,?,?,?,?,?,?,?)",
+                    (
+                        plan_id,
+                        m["seq"],
+                        m["module_id"],
+                        m["title"],
+                        m["organ"],
+                        m["difficulty"],
+                        json.dumps(m["readings"]),
+                        json.dumps(m["questions"]),
+                        m["estimated_hours"],
+                    ),
+                )
+            payload = dict(plan, db_plan_id=plan_id)
+            conn.execute(
+                "INSERT INTO plan_payloads VALUES(?,?,?,?)",
+                (
+                    plan_id,
+                    plan["determinism_inputs"]["fingerprint_schema_version"],
+                    plan["fingerprint_sha256"],
+                    json.dumps(payload, allow_nan=False),
+                ),
+            )
+        return plan_id
+
+    def get_plan(self, plan_id: int) -> dict[str, Any] | None:
+        """Retrieve by database key; never silently reconstruct a historical fingerprint."""
+        with self.connection() as conn:
+            payload = conn.execute(
+                "SELECT payload_json FROM plan_payloads WHERE plan_id=?", (plan_id,)
+            ).fetchone()
+            if payload:
+                return json.loads(payload[0])
+            row = conn.execute("SELECT * FROM plans WHERE id=?", (plan_id,)).fetchone()
+            if row is None:
+                return None
+            profile = dict(
+                conn.execute("SELECT * FROM profiles WHERE id=?", (row["profile_id"],)).fetchone()
+            )
+            modules = []
+            for m in conn.execute(
+                "SELECT * FROM plan_modules WHERE plan_id=? ORDER BY seq", (plan_id,)
+            ):
+                item = dict(m)
+                item["readings"] = json.loads(item.pop("readings_json"))
+                item["questions"] = json.loads(item.pop("questions_json"))
+                modules.append(item)
+            profile["goals"] = json.loads(profile.pop("goals_json"))
+            profile["context"] = json.loads(profile.pop("context_json"))
+            return {
+                "schema_version": "legacy_projection",
+                "db_plan_id": plan_id,
+                "plan_id": None,
+                "fingerprint_sha256": None,
+                "historical_integrity": "original_payload_and_fingerprint_not_stored",
+                "title": row["title"],
+                "profile": profile,
+                "modules": modules,
+                "totals": {"module_count": row["module_count"], "total_hours": row["total_hours"]},
+            }
+
+    def get_passage(self, document_id: int, chunk_index: int) -> dict[str, Any] | None:
+        """Read snapshot text even when the original external file is no longer available."""
+        with self.connection() as conn:
+            row = conn.execute(
+                """SELECT d.snapshot_id,d.id AS document_id,d.sha256,d.rel_path,
+                c.chunk_index,c.heading_path,c.text FROM document_chunks c
+                JOIN documents d ON d.id=c.document_id WHERE d.id=? AND c.chunk_index=?""",
+                (document_id, chunk_index),
+            ).fetchone()
+            if row is None:
+                return None
+            result = dict(row)
+            result["aliases"] = [
+                r[0]
+                for r in conn.execute(
+                    "SELECT alias_path FROM document_aliases WHERE document_id=? ORDER BY alias_path",
+                    (document_id,),
+                )
+            ]
+            result["document_completeness"] = "not_established"
+            return result
+
+    def record_source_judgment(self, record: dict[str, Any]) -> int:
+        """Append an attributed judgment after verifying its exact snapshot passage."""
+        from .support import validate_judgment
+
+        validate_judgment(self, record)
+        with self.connection() as conn:
+            cur = conn.execute(
+                "INSERT INTO source_judgments(document_id,payload_json) VALUES(?,?)",
+                (record["document_id"], json.dumps(record, allow_nan=False)),
+            )
+            return self._cursor_lastrowid(cur)
+
+    def list_source_judgments(
+        self, document_id: int | None = None, *, snapshot_id: int | None = None
+    ) -> list[dict[str, Any]]:
+        """Read document or snapshot judgments, preserving cross-source contradictions."""
+        if (document_id is None) == (snapshot_id is None):
+            raise ValueError("Select exactly one document_id or snapshot_id")
+        selector = document_id if document_id is not None else snapshot_id
+        if type(selector) is not int or selector <= 0:
+            raise ValueError("Source judgment selector must be a positive integer")
+        column = "j.document_id" if document_id is not None else "d.snapshot_id"
+        with self.connection() as conn:
+            return [
+                json.loads(r[0])
+                for r in conn.execute(
+                    "SELECT j.payload_json FROM source_judgments j "
+                    "JOIN documents d ON d.id=j.document_id "
+                    f"WHERE {column}=? ORDER BY j.id",
+                    (selector,),
+                )
+            ]
