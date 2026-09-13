@@ -1,11 +1,11 @@
 """Tests for adaptive-personal-syllabus."""
+from adaptive_personal_syllabus.generator import SyllabusGenerator
 from adaptive_personal_syllabus.models import (
     DifficultyLevel,
     LearnerProfile,
     LearningModule,
     LearningPath,
 )
-from adaptive_personal_syllabus.generator import SyllabusGenerator
 
 
 def test_learner_profile_defaults():

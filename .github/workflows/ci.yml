@@ -19,16 +19,15 @@ jobs:
         uses: actions/checkout@v7
 
       - name: Set up Python ${{ matrix.python-version }}
-        uses: actions/setup-python@v6
+        uses: actions/setup-python@v7
         with:
           python-version: ${{ matrix.python-version }}
           cache: pip
 
       - name: Clone koinonia-db seed data
-        run: git clone --depth 1 https://github.com/organvm-vi-koinonia/koinonia-db.git ../koinonia-db
-
-      - name: Install koinonia-db from git
-        run: pip install "koinonia-db @ git+https://github.com/organvm-vi-koinonia/koinonia-db.git"
+        run: |
+          git clone https://github.com/organvm-vi-koinonia/koinonia-db.git ../koinonia-db
+          git -C ../koinonia-db checkout --detach 276b0c1ab4fa1e46c11938d60c638ba380cbff68
 
       - name: Install dependencies
         run: |

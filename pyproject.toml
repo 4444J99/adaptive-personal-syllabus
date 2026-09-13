@@ -11,12 +11,12 @@ license = {text = "MIT"}
 dependencies = [
     "click>=8.0",
     "PyYAML>=6.0",
-    "koinonia-db",
+    "koinonia-db @ git+https://github.com/organvm-vi-koinonia/koinonia-db.git@276b0c1ab4fa1e46c11938d60c638ba380cbff68",
     "sqlalchemy>=2.0",
 ]
 
 [project.optional-dependencies]
-dev = ["pytest>=7.0", "pytest-cov>=4.0", "ruff>=0.1.0", "mypy>=1.0", "types-PyYAML>=6.0.12"]
+dev = ["pytest==9.1.1", "pytest-cov==7.1.0", "ruff==0.16.7", "mypy==2.3.1", "types-PyYAML==6.0.12.20260906"]
 
 [project.scripts]
 syllabus = "adaptive_personal_syllabus.core:cli"
