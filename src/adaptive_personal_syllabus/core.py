@@ -3,6 +3,8 @@
 from __future__ import annotations
 
 import json
+import os
+import tempfile
 from pathlib import Path
 from typing import Any
 
@@ -460,7 +462,22 @@ def plan_encounter(
     if encounter is None:
         raise click.ClickException("This historical plan has no stored encounter")
 
+    # Project once for both formats; never mutate the stored encounter.
+    encounter = dict(encounter)
+    prompts = {
+        "encounter": "Optional: engage with this encounter in your own way.",
+        "short_written": "Optional: write a short response in your own words.",
+        "spoken_under_two_minutes": "Optional: speak in your own words for under two minutes.",
+        "worked_explanation": "An explanation is available without assessment.",
+        "no_response_now": "No response is required. You can return to this encounter later.",
+    }
+    if route in {"no_response_now", "worked_explanation"}:
+        encounter["steps"] = []
+    if route == "no_response_now":
+        encounter["self_contained_example"] = ""
     payload = {
+        "response_required": False,
+        "response_prompt": prompts[route],
         "db_plan_id": plan_id,
         "module_id": module["module_id"],
         "title": module["title"],
@@ -479,21 +496,37 @@ def plan_encounter(
         module["title"],
         "Prepared material; no learner response or result is recorded.",
     ]
-    if route == "no_response_now":
-        lines.append("No response is required. You can return to this encounter later.")
-    elif route == "worked_explanation":
-        lines.extend(_render_assistant_example(encounter))
-        lines.append("An explanation is available without assessment.")
-    else:
+    if encounter["steps"]:
         lines.append("Assistant instruction:")
         lines.extend(encounter["steps"])
+    if encounter["self_contained_example"]:
         lines.extend(_render_assistant_example(encounter))
-        if route == "short_written":
-            lines.append("Optional: write a short response in your own words.")
-        elif route == "spoken_under_two_minutes":
-            lines.append("Optional: speak in your own words for under two minutes.")
+    lines.append(payload["response_prompt"])
     lines.append(encounter["completion"])
     click.echo("\n".join(lines))
+
+
+
+def _write_artifact_exclusive(output: Path, data: bytes) -> None:
+    """Publish complete bytes atomically without replacing an existing path.
+
+    The temporary file shares the output filesystem. A failed write/fsync/link
+    leaves the requested output absent; hard-link creation fails on collisions.
+    This does not make the separate ledger append a filesystem transaction.
+    """
+    fd, temporary = tempfile.mkstemp(prefix=".aps-artifact-", dir=output.parent)
+    try:
+        with os.fdopen(fd, "wb", buffering=0) as stream:
+            remaining = memoryview(data)
+            while remaining:
+                written = os.write(stream.fileno(), remaining)
+                if written <= 0:
+                    raise OSError("Artifact write made no progress")
+                remaining = remaining[written:]
+            os.fsync(stream.fileno())
+        os.link(temporary, output)
+    finally:
+        Path(temporary).unlink(missing_ok=True)
 
 
 @plan.command("artifact")
@@ -527,8 +560,7 @@ def plan_artifact(plan_id: int, wing: str, output: Path, db_path: Path) -> None:
         )
     data = ("\n".join(lines) + "\n").encode()
     try:
-        with output.open("xb") as stream:
-            stream.write(data)
+        _write_artifact_exclusive(output, data)
     except FileExistsError as exc:
         raise click.ClickException("Output already exists; choose a new version") from exc
     except OSError as exc:

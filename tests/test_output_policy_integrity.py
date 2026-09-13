@@ -179,6 +179,23 @@ def test_encounter_route_cannot_fabricate_performance_or_artifacts(prepared, tmp
     )
     assert result.exit_code == 0, result.output
     viewed = json.loads(result.output)
+    original = plan["modules"][0]["encounter"]
+    if route in {"no_response_now", "worked_explanation"}:
+        assert viewed["encounter"]["steps"] == []
+    else:
+        assert viewed["encounter"]["steps"] == original["steps"]
+    assert viewed["response_required"] is False
+    if route == "no_response_now":
+        assert viewed["encounter"]["self_contained_example"] == ""
+    else:
+        assert viewed["encounter"]["self_contained_example"] == original["self_contained_example"]
+    text_args = ["plan", "encounter", str(plan["db_plan_id"]), "--route", route,
+                 "--db-path", str(storage.db_path)]
+    text_result = CliRunner().invoke(cli, text_args)
+    assert text_result.exit_code == 0
+    assert viewed["response_prompt"] in text_result.output
+    for step in original["steps"]:
+        assert (step in text_result.output) == (route not in {"no_response_now", "worked_explanation"})
     assert viewed["status"] == "prepared_not_started"
     assert viewed["assessment_status"] == "unassessed"
     assert viewed["performance_recorded"] is False
@@ -243,3 +260,30 @@ def test_historical_plan_does_not_invent_new_encounter(prepared):
     )
     assert result.exit_code == 1
     assert "historical plan has no stored encounter" in result.output
+
+
+@pytest.mark.parametrize("failure_point", ["write", "fsync", "link"])
+def test_interrupted_artifact_is_never_published_and_can_retry(prepared, tmp_path, monkeypatch, failure_point):
+    import os
+
+    storage, plan = prepared
+    output = tmp_path / "atomic.md"
+    before = storage.iter_ledger_events()
+    before_files = set(tmp_path.iterdir())
+    original_write = os.write
+
+    def fail(*args, **kwargs):
+        if failure_point == "write":
+            original_write(args[0], args[1][:8])
+        raise OSError("simulated interrupted publication")
+
+    with monkeypatch.context() as patch:
+        patch.setattr(os, failure_point, fail)
+        result = CliRunner().invoke(cli, artifact_args(storage, plan, output))
+    assert result.exit_code == 1
+    assert not output.exists()
+    assert set(tmp_path.iterdir()) == before_files
+    assert storage.iter_ledger_events() == before
+    retry = CliRunner().invoke(cli, artifact_args(storage, plan, output))
+    assert retry.exit_code == 0, retry.output
+    assert json.loads(retry.output)["sha256"] == hashlib.sha256(output.read_bytes()).hexdigest()
