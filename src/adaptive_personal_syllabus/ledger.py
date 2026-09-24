@@ -73,18 +73,27 @@ class Ledger:
             row_type = str(row["event_type"])
             row_hash = str(row["event_hash"])
             row_created = str(row["created_at"])
-            payload = json.loads(str(row["payload_json"]))
 
             if row_prev != expected_prev:
                 errors.append(
                     f"event {row_id}: prev_hash mismatch (expected {expected_prev or '<genesis>'}, got {row_prev or '<genesis>'})"
                 )
 
-            computed_hash = self._hash_event(row_prev, row_type, payload, row_created)
-            if computed_hash != row_hash:
-                errors.append(
-                    f"event {row_id}: event_hash mismatch (expected {computed_hash}, got {row_hash})"
-                )
+            try:
+                raw_payload = row["payload_json"]
+                if raw_payload is None:
+                    raise ValueError("payload_json is NULL")
+                payload = json.loads(str(raw_payload))
+                if not isinstance(payload, dict):
+                    raise ValueError(f"expected JSON object, got {type(payload).__name__}")
+            except Exception as exc:
+                errors.append(f"event {row_id}: malformed payload JSON ({exc})")
+            else:
+                computed_hash = self._hash_event(row_prev, row_type, payload, row_created)
+                if computed_hash != row_hash:
+                    errors.append(
+                        f"event {row_id}: event_hash mismatch (expected {computed_hash}, got {row_hash})"
+                    )
 
             expected_prev = row_hash
 
