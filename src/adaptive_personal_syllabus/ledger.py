@@ -82,11 +82,11 @@ class Ledger:
             try:
                 raw_payload = row["payload_json"]
                 if raw_payload is None:
-                    raise ValueError("payload_json is NULL")
+                    raise TypeError("payload_json is NULL")
                 payload = json.loads(str(raw_payload))
                 if not isinstance(payload, dict):
-                    raise ValueError(f"expected JSON object, got {type(payload).__name__}")
-            except Exception as exc:
+                    raise TypeError(f"expected JSON object, got {type(payload).__name__}")
+            except (json.JSONDecodeError, TypeError, ValueError) as exc:
                 errors.append(f"event {row_id}: malformed payload JSON ({exc})")
             else:
                 computed_hash = self._hash_event(row_prev, row_type, payload, row_created)

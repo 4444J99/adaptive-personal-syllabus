@@ -143,7 +143,7 @@ def test_ledger_verify_db_unchanged(tmp_path: Path) -> None:
         rows_before = conn.execute("SELECT * FROM ledger_events ORDER BY id ASC").fetchall()
         rows_before_dicts = [dict(r) for r in rows_before]
 
-    ok, errors, count = ledger.verify_chain()
+    ok, _errors, count = ledger.verify_chain()
     assert ok is False
     assert count == 2
 
