@@ -4,12 +4,11 @@ from __future__ import annotations
 
 from uuid import uuid4
 
+from koinonia_db.models.reading import Entry
+from koinonia_db.models.salon import TaxonomyNodeRow
+from koinonia_db.models.syllabus import LearnerProfileRow, LearningModuleRow, LearningPathRow
 from sqlalchemy import create_engine, select
 from sqlalchemy.orm import Session
-
-from koinonia_db.models.salon import TaxonomyNodeRow
-from koinonia_db.models.reading import Entry
-from koinonia_db.models.syllabus import LearnerProfileRow, LearningPathRow, LearningModuleRow
 
 from .models import DifficultyLevel, LearnerProfile, LearningModule, LearningPath
 

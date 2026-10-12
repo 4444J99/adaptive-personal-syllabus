@@ -3,11 +3,11 @@ from __future__ import annotations
 
 import json
 import sqlite3
+from collections.abc import Iterator, Sequence
 from contextlib import contextmanager
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
-from typing import Any, Iterator, Sequence
-
+from typing import Any
 
 DEFAULT_DATA_DIR = Path.home() / ".adaptive-syllabus"
 DEFAULT_DB_PATH = DEFAULT_DATA_DIR / "adaptive_syllabus.db"
@@ -16,7 +16,7 @@ DEFAULT_PROFILE_PATH = DEFAULT_DATA_DIR / "profile.json"
 
 def utcnow_iso() -> str:
     """UTC timestamp in ISO-8601 format."""
-    return datetime.now(tz=timezone.utc).replace(microsecond=0).isoformat()
+    return datetime.now(tz=UTC).replace(microsecond=0).isoformat()
 
 
 class Storage:

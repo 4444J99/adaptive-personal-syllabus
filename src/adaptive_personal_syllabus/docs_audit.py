@@ -10,10 +10,9 @@ from typing import Any
 
 import yaml
 
-from .corpus import CorpusIngestor, TEXT_EXTENSIONS, discover_documents
+from .corpus import TEXT_EXTENSIONS, CorpusIngestor, discover_documents
 from .ledger import Ledger
 from .storage import Storage, utcnow_iso
-
 
 ACTIONABLE_MARKER = re.compile(r"actionable suggestions?\s*:?", re.IGNORECASE)
 USE_CASE_PATTERN = re.compile(r"\buse[- ]cases?\b", re.IGNORECASE)
@@ -583,7 +582,7 @@ class DocsAuditService:
             by_sha.setdefault(sha, []).append(path)
 
         for sha, hash_paths in sorted(by_sha.items(), key=lambda pair: (pair[0], str(pair[1][0]))):
-            canonical = sorted(hash_paths, key=lambda p: str(p.relative_to(root)))[0]
+            canonical = min(hash_paths, key=lambda p: str(p.relative_to(root)))
             canonical_rel = str(canonical.relative_to(root))
             for path in sorted(hash_paths, key=lambda p: str(p.relative_to(root))):
                 rel_path = str(path.relative_to(root))
@@ -601,7 +600,7 @@ class DocsAuditService:
         extracted_suggestions: list[ExtractedItem] = []
         extracted_use_cases: list[ExtractedItem] = []
         for sha in sorted(by_sha):
-            canonical = sorted(by_sha[sha], key=lambda p: str(p.relative_to(root)))[0]
+            canonical = min(by_sha[sha], key=lambda p: str(p.relative_to(root)))
             if canonical.suffix.lower() not in TEXT_EXTENSIONS:
                 continue
             text = canonical.read_text(encoding="utf-8")

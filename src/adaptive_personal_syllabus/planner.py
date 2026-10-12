@@ -11,7 +11,6 @@ from .ledger import Ledger
 from .models import DifficultyLevel, LearnerProfile, PersonalizationRule
 from .storage import Storage
 
-
 WINGS: list[dict[str, str]] = [
     {"wing_id": "academic", "name": "Academic", "description": "Research summary or formal analysis."},
     {"wing_id": "sop", "name": "SOP", "description": "Operational runbook or procedure."},
