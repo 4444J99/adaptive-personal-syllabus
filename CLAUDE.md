@@ -27,7 +27,6 @@ AI-personalized education system with multi-module curriculum spanning OS develo
     seed.yaml
     source-materials
     syllabusEVOLUTION
-    transcript-jf-ap-trading-cards.txt
 📁 src/
     adaptive_personal_syllabus
 📁 tests/
