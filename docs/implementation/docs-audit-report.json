@@ -5,13 +5,13 @@
   "snapshot": {
     "snapshot_id": 9,
     "snapshot_name": "docs-full-audit",
-    "doc_count": 82,
-    "unique_payload_count": 44,
+    "doc_count": 81,
+    "unique_payload_count": 43,
     "created_at": "2026-02-18T14:43:12+00:00"
   },
   "ingest_verification": {
-    "expected_file_count": 82,
-    "snapshot_doc_count": 82,
+    "expected_file_count": 81,
+    "snapshot_doc_count": 81,
     "all_files_ingested": true
   },
   "files": [
@@ -662,14 +662,6 @@
       "size_bytes": 4552,
       "extension": ".md",
       "is_duplicate_payload": true
-    },
-    {
-      "rel_path": "transcript-jf-ap-trading-cards.txt",
-      "canonical_rel_path": "transcript-jf-ap-trading-cards.txt",
-      "sha256": "3822046f189f0db960e25245ac07a03fe0835f301c14cf544b5bd638c3f5d22a",
-      "size_bytes": 88837,
-      "extension": ".txt",
-      "is_duplicate_payload": false
     }
   ],
   "suggestions": {
