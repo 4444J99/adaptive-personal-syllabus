@@ -3,8 +3,8 @@
 - Generated at: `2026-02-18T14:43:12+00:00`
 - Root: `/Users/4jp/Workspace/organvm-vi-koinonia/adaptive-personal-syllabus/docs`
 - Snapshot: `docs-full-audit` (id=9)
-- Files discovered: `82`
-- Files ingested: `82`
+- Files discovered: `81`
+- Files ingested: `81`
 - Ingest complete: `True`
 
 ## Suggestions Summary

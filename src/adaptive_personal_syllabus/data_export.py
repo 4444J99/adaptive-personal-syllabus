@@ -14,7 +14,6 @@ from typing import Any
 from .generator import SyllabusGenerator
 from .models import DifficultyLevel, LearnerProfile
 
-
 SEED_DIR = Path(__file__).parent.parent.parent.parent / "koinonia-db" / "seed"
 
 SAMPLE_PROFILES = [

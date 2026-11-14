@@ -1,11 +1,11 @@
 # Adaptive Personal Syllabus
 
-[![CI](https://github.com/organvm-vi-koinonia/adaptive-personal-syllabus/actions/workflows/ci.yml/badge.svg)](https://github.com/organvm-vi-koinonia/adaptive-personal-syllabus/actions/workflows/ci.yml)
-[![Coverage](https://img.shields.io/badge/coverage-pending-lightgrey)](https://github.com/organvm-vi-koinonia/adaptive-personal-syllabus)
-[![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](https://github.com/organvm-vi-koinonia/adaptive-personal-syllabus/blob/main/LICENSE)
+[![CI](https://github.com/4444J99/adaptive-personal-syllabus/actions/workflows/ci.yml/badge.svg)](https://github.com/4444J99/adaptive-personal-syllabus/actions/workflows/ci.yml)
+[![Coverage](https://img.shields.io/badge/coverage-pending-lightgrey)](https://github.com/4444J99/adaptive-personal-syllabus)
+[![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](https://github.com/4444J99/adaptive-personal-syllabus/blob/main/LICENSE)
 [![Organ VI](https://img.shields.io/badge/Organ-VI%20Koinonia-6366F1)](https://github.com/organvm-vi-koinonia)
-[![Status](https://img.shields.io/badge/status-active-brightgreen)](https://github.com/organvm-vi-koinonia/adaptive-personal-syllabus)
-[![Python](https://img.shields.io/badge/lang-Python-informational)](https://github.com/organvm-vi-koinonia/adaptive-personal-syllabus)
+[![Status](https://img.shields.io/badge/status-active-brightgreen)](https://github.com/4444J99/adaptive-personal-syllabus)
+[![Python](https://img.shields.io/badge/lang-Python-informational)](https://github.com/4444J99/adaptive-personal-syllabus)
 
 **An AI-personalized education system that transforms generic curricula into context-aware, multi-artifact learning journeys spanning OS development, algorithms, DSLs, kernel engineering, UI/sound/video, and AR/VR -- generating eight parallel professional outputs per module through a "Wings" multi-artifact framework.**
 
@@ -154,7 +154,7 @@ The engine uses a combination of template-based rewriting (for structural elemen
 
 ```bash
 # Clone the repository
-git clone https://github.com/organvm-vi-koinonia/adaptive-personal-syllabus.git
+git clone https://github.com/4444J99/adaptive-personal-syllabus.git
 cd adaptive-personal-syllabus
 
 # Create and activate a virtual environment
@@ -389,121 +389,42 @@ Below are excerpts from the Wings artifacts generated for a learner whose profil
 > This module establishes a provenance-tracking infrastructure inspired by Merkle tree structures (Merkle, 1979) and applied to educational activity logging. Unlike conventional learning management systems that track only completion status, the ChainBlockARK maintains cryptographic integrity guarantees over the full sequence of learner interactions, enabling reproducible audit trails for competency claims.
 
 **Business Wing (excerpt):**
-> For Acme Corp's IoT developer tooling platform, the ChainBlockARK pattern translates directly into a customer-facing feature: auditable firmware update chains. Each update to a deployed device can be tracked through a hash-chained ledger, providing the compliance documentation required by IEC 62443 (industrial cybersecurity) without additional engineering effort.
-
-**Social Wing (excerpt):**
-> Started Module 0 of my OS-from-scratch learning journey. Built a hash-chained activity ledger that tracks every commit, AI interaction, and reading note. Think git log meets blockchain meets learning diary. The provenance chain already has 47 blocks. #BuildInPublic #SystemsProgramming
-
-**Grants Wing (excerpt):**
-> The provenance infrastructure developed in this phase addresses a documented gap in competency verification for self-directed learners (Thompson et al., 2024). By maintaining cryptographically verifiable records of learning activity, the system provides evidence suitable for portfolio assessment by fellowship review committees and grant panels evaluating technical capacity.
+> For Acme Corp's IoT developer tooling platform, the ChainBlockARK pattern translates directly into a customer-facing feature: auditable firmware update chains. Each update to a deployed device can be tracked through a hash-chained ledger, providing the compliance documentation required by IEC 62443 (industrial cybersecurity) without additional third-party audit infrastructure.
 
 ---
 
 ## 7. Pedagogical Foundation
 
-### Interdisciplinary Tie-Ins
+The curriculum is grounded in established educational research and systems engineering practice:
 
-Each module includes explicit connections to arts and humanities, mathematics and sciences, and philosophy. These tie-ins are not decorative -- they are structural elements of the curriculum designed to develop the integrative thinking that distinguishes senior practitioners from specialists.
-
-| Module | Arts & Humanities | Math/Sciences | Philosophy |
-|--------|------------------|---------------|------------|
-| 0 | Archival science, provenance in art authentication | Hash functions, Merkle trees | Epistemology of record-keeping |
-| 1 | Typographic conventions in technical writing | Information theory (Shannon entropy) | Philosophy of tools (Heidegger's readiness-to-hand) |
-| 2 | Algorithmic art (Vera Molnar, Georg Nees) | Combinatorics, graph theory | Recursion and self-reference (Hofstadter) |
-| 3 | Concrete poetry, constrained writing (OuLiPo) | Lambda calculus, Church encoding | Philosophy of language (Wittgenstein) |
-| 4 | Hardware aesthetics, circuit board art | Boolean algebra, finite automata | Materialism and abstraction |
-| 5 | Systems art (Hans Haacke, Jack Burnham) | Queuing theory, memory hierarchy | Observation and measurement (quantum mechanics parallels) |
-| 6 | Interface design history (Xerox PARC to present) | Signal processing, Fourier transforms | Phenomenology of perception (Merleau-Ponty) |
-| 7 | Spatial installation art, immersive theatre | Formal logic, satisfiability | Extended mind thesis (Clark and Chalmers) |
-
-### Core Reading List
-
-The curriculum draws from foundational texts across computer science, systems engineering, and philosophy of computation:
-
-- **Abelson & Sussman** -- *Structure and Interpretation of Computer Programs* (SICP). The backbone of Modules 2-3. Recursive thinking, abstraction barriers, metalinguistic abstraction.
-- **Chacon & Straub** -- *Pro Git*. Module 1 reference for version control internals and workflow design.
-- **Queinnec** -- *Lisp in Small Pieces*. Module 3 deep reference for interpreter and compiler construction from first principles.
-- **Arpaci-Dusseau & Arpaci-Dusseau** -- *Operating Systems: Three Easy Pieces*. Modules 4-5 primary text for virtualization, concurrency, and persistence.
-- **Kleppmann** -- *Designing Data-Intensive Applications*. Cross-cutting reference for distributed systems thinking, used in Modules 5 and Capstone.
-- **Klein et al.** -- *seL4: Formal Verification of an OS Kernel* (SOSP 2009). Module 7 and Capstone reference for formal methods applied to kernel verification.
-- **Hofstadter** -- *Godel, Escher, Bach*. Philosophical backbone for recursive intuition (Module 2) and meta-circular reasoning (Module 3).
-- **Sussman & Wisdom** -- *Structure and Interpretation of Classical Mechanics*. Advanced cross-reference for Module 7's neural-symbolic extensions.
-
-### Pedagogical Methodology
-
-The Adaptive Personal Syllabus applies three established pedagogical principles:
-
-1. **Constructionism** (Papert, 1991) -- Learning happens through building artifacts, not consuming content. Every module produces tangible outputs (code, documents, prototypes), and the Wings framework ensures those outputs serve professional purposes beyond the learning context.
-
-2. **Spaced Repetition with Contextual Variation** -- Concepts introduced in early modules reappear in later modules in new contexts. Recursion (Module 2) reappears in kernel interrupt handling (Module 5) and formal verification (Module 7). Each reappearance deepens understanding by providing a new application domain.
-
-3. **Reflective Practice** (Schon, 1983) -- The ChainBlockARK provenance chain and the Wings writing process require the learner to reflect on what they have learned and articulate it in multiple registers (academic, business, social, etc.). This multi-register articulation forces deeper processing than single-format assessment.
+- **Constructivism** (Piaget, Vygotsky): Learners construct knowledge through active engagement with problems in their own context, not passive reception of abstract principles.
+- **Deliberate Practice** (Ericsson): Modules are structured around focused exercises with clear success criteria and immediate feedback.
+- **Cognitive Apprenticeship** (Collins, Brown, Newman): The system makes expert thinking visible by showing how source material is adapted, not just the final adapted result.
+- **Systems Thinking** (Meadows, Senge): Later modules require integrating prior modules, teaching learners to reason about layered systems rather than isolated components.
 
 ---
 
 ## 8. Testing and Quality
 
-### Test Suite
+The repository maintains quality gates for documentation and code:
 
-```bash
-# Run the full test suite
-pytest tests/ -v
+- `pytest` for unit and integration tests of the personalization engine and CLI
+- `ruff` for linting and formatting
+- `mypy` for type checking
+- Documentation audit scripts that verify internal links, badge freshness, and module consistency
 
-# Run tests for a specific module
-pytest tests/test_module_00.py -v
-
-# Run personalization engine tests
-pytest tests/test_personalization/ -v
-
-# Check code quality
-ruff check src/
-mypy src/ --strict
-```
-
-### Quality Gates
-
-Each module's Wings artifacts are validated against quality criteria before being marked complete:
-
-- **Completeness** -- All eight Wings generated with non-zero content
-- **Personalization Depth** -- At least 60% of generic references replaced with learner-specific context
-- **Provenance** -- All source materials cited, adaptation rules logged in metadata
-- **Cross-Reference Integrity** -- Internal links between Wings and module content resolve correctly
-
-### Continuous Integration
-
-The CI pipeline (`.github/workflows/ci.yml`) runs on every push:
-
-1. Lint and type-check (`ruff`, `mypy`)
-2. Unit tests (`pytest`)
-3. Template rendering validation (all Jinja2 templates render without errors)
-4. Schema validation (`profile.yaml` and `syllabus.yaml` against JSON schemas)
+CI runs on every push and pull request.
 
 ---
 
 ## 9. Cross-References
 
-### ORGAN VI Repositories
+Related projects in the ORGAN VI community and broader organvm ecosystem:
 
-The Adaptive Personal Syllabus is part of ORGAN VI (Community), which provides infrastructure for collaborative learning and knowledge sharing:
-
-| Repository | Description | Relationship |
-|-----------|-------------|-------------|
+| Project | Description | Relevance |
+|---------|-------------|-----------|
 | [salon-archive](https://github.com/organvm-vi-koinonia/salon-archive) | Archive infrastructure for intellectual salons: transcription pipeline, topic taxonomy, and session metadata | Salon discussions feed into curriculum refinement; Module exercises can be adapted for salon workshops |
 | [reading-group-curriculum](https://github.com/organvm-vi-koinonia/reading-group-curriculum) | Structured reading group curricula spanning eight-organ domains: 8-12 week programs with curated reading lists | Reading lists inform module readings; reading group formats inform Community Wing templates |
-
-### Cross-Organ Dependencies
-
-The Adaptive Personal Syllabus draws from and contributes to multiple organs:
-
-- **ORGAN I (Theory)** -- The recursive intuition module (Module 2) references frameworks from `recursive-engine--generative-entity`. The meta-circular interpreter module (Module 3) shares conceptual foundations with `organon-noumenon--ontogenetic-morphe`.
-- **ORGAN II (Art)** -- Arts and humanities tie-ins reference generative art systems from ORGAN II. The UI/Sound/Video module (Module 6) draws on audio engineering patterns explored in ORGAN II repositories.
-- **ORGAN IV (Orchestration)** -- The ChainBlockARK provenance model (Module 0) mirrors the governance and audit patterns defined in ORGAN IV's orchestration system.
-- **ORGAN V (Public Process)** -- The Web/Blog Wing artifact format aligns with ORGAN V's essay publishing infrastructure, enabling direct contribution to the public process.
-- **ORGAN VII (Marketing)** -- The Social Wing artifact format is designed for compatibility with ORGAN VII's POSSE distribution pipeline.
-
-### System Context
-
-This repository is part of an eight-organ creative-institutional system coordinating 81 repositories across 8 GitHub organizations. The system is documented at [organvm-corpvs-testamentvm](https://github.com/meta-organvm/organvm-corpvs-testamentvm) and governed by a single source of truth registry (`registry-v2.json`).
 
 ---
 

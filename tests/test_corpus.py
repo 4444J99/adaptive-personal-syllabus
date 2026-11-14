@@ -6,7 +6,11 @@ from pathlib import Path
 
 import pytest
 
-from adaptive_personal_syllabus.corpus import CorpusIngestor, discover_documents, heading_aware_chunks
+from adaptive_personal_syllabus.corpus import (
+    CorpusIngestor,
+    discover_documents,
+    heading_aware_chunks,
+)
 from adaptive_personal_syllabus.ledger import Ledger
 from adaptive_personal_syllabus.storage import Storage
 
