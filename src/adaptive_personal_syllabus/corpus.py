@@ -298,7 +298,10 @@ class CorpusIngestor:
             )
 
             for sha in sorted(by_hash):
-                group = sorted(by_hash[sha], key=lambda c: c.rel_path)
+                # Prefer a decoded representation of identical bytes. A binary-labelled
+                # alias sorting first must not discard text that was actually recovered.
+                # Paths remain aliases; content equality does not establish an edition.
+                group = sorted(by_hash[sha], key=lambda c: (c.text is None, c.rel_path))
                 canonical = group[0]
                 canonical_docs += 1
                 doc_id = self.storage.insert_document(

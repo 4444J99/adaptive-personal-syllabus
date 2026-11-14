@@ -159,7 +159,7 @@ def test_cli_profile_init_and_plan_generate_json(tmp_path: Path) -> None:
     assert plan.exit_code == 0
 
     plan_data = json.loads(plan.output)
-    assert plan_data["schema_version"] == "1.0"
+    assert plan_data["schema_version"] == "2.0"
     assert "plan_id" in plan_data
     assert "determinism_inputs" in plan_data
     assert plan_data["determinism_inputs"]["snapshot_id"] == plan_data["snapshot"]["id"]

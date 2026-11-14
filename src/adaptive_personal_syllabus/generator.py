@@ -88,7 +88,9 @@ class SyllabusGenerator:
 
         # Filter by difficulty
         level_value = level.value
-        if level == DifficultyLevel.BEGINNER:
+        if level == DifficultyLevel.UNASSESSED:
+            allowed = {"beginner", "intermediate", "advanced"}
+        elif level == DifficultyLevel.BEGINNER:
             allowed = {"beginner", "intermediate"}
         elif level == DifficultyLevel.INTERMEDIATE:
             allowed = {"intermediate", "advanced"}
@@ -130,6 +132,7 @@ class SyllabusGenerator:
                         f"What would you build or explore using {child['label']}?",
                     ],
                     estimated_hours=2.0 if level != DifficultyLevel.ADVANCED else 3.0,
+                    prerequisites=list(child.get("prerequisites", [])),
                 )
             )
 

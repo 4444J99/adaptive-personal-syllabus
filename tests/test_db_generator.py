@@ -72,3 +72,20 @@ def test_build_modules_with_data():
     assert modules[0].title == "Foundations"
     assert modules[0].organ == "i-theoria"
     assert "Intro to Theoria" in modules[0].readings
+
+
+def test_unassessed_does_not_filter_readings_as_advanced():
+    """An unassessed preference does not establish a proficiency filter."""
+    gen = DatabaseSyllabusGenerator("sqlite:///:memory:")
+    profile = LearnerProfile(name="Synthetic", organs_of_interest=["I"])
+    taxonomy = [{
+        "slug": "i-theoria", "label": "Theoria",
+        "children": [{"slug": "foundations", "label": "Foundations"}],
+    }]
+    readings = [
+        {"title": level, "organ_tags": ["i-theoria"], "difficulty": level}
+        for level in ("beginner", "intermediate", "advanced")
+    ]
+    modules = gen._build_modules(profile, taxonomy, readings)
+    assert modules[0].difficulty == DifficultyLevel.UNASSESSED
+    assert modules[0].readings == ["beginner", "intermediate", "advanced"]

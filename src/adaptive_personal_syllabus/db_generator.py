@@ -102,7 +102,9 @@ class DatabaseSyllabusGenerator:
             ]
 
             level = profile.level
-            if level == DifficultyLevel.BEGINNER:
+            if level == DifficultyLevel.UNASSESSED:
+                allowed = {"beginner", "intermediate", "advanced"}
+            elif level == DifficultyLevel.BEGINNER:
                 allowed = {"beginner", "intermediate"}
             elif level == DifficultyLevel.INTERMEDIATE:
                 allowed = {"intermediate", "advanced"}
