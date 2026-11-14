@@ -10,7 +10,7 @@ from typing import Any
 
 import yaml
 
-from .corpus import TEXT_EXTENSIONS, CorpusIngestor, discover_documents
+from .corpus import TEXT_EXTENSIONS, CorpusIngestor, _read_admitted_bytes, discover_documents
 from .ledger import Ledger
 from .storage import Storage, utcnow_iso
 
@@ -350,7 +350,7 @@ def _load_milestone_status_overrides(root: Path) -> dict[str, str]:
         if path.is_file() and any(path.name.endswith(suffix) for suffix in STATUS_FILE_SUFFIXES)
     )
     for path in files:
-        data = yaml.safe_load(path.read_text(encoding="utf-8")) or {}
+        data = yaml.safe_load(_read_admitted_bytes(root, path).decode("utf-8")) or {}
         if not isinstance(data, dict):
             continue
         milestone = str(data.get("milestone", "")).strip()
@@ -411,8 +411,8 @@ def _aggregate_items(
     return sorted(out, key=lambda entry: (entry["status"], entry["text"].lower()))
 
 
-def _path_sha256(path: Path) -> str:
-    return hashlib.sha256(path.read_bytes()).hexdigest()
+def _path_sha256(path: Path, root: Path) -> str:
+    return hashlib.sha256(_read_admitted_bytes(root, path)).hexdigest()
 
 
 def _build_milestone_summary(suggestions: list[dict[str, Any]]) -> tuple[list[dict[str, Any]], str | None]:
@@ -594,11 +594,11 @@ class DocsAuditService:
         snapshot = ingestor.ingest(root=root, snapshot_name=snapshot_name, exclude_paths=excluded)
         status_overrides = _load_milestone_status_overrides(root)
 
-        paths = [path for path in discover_documents(root) if path.resolve() not in excluded]
+        paths = discover_documents(root, exclude_paths=excluded)
         file_manifest: list[dict[str, Any]] = []
         by_sha: dict[str, list[Path]] = {}
         for path in paths:
-            sha = _path_sha256(path)
+            sha = _path_sha256(path, root)
             by_sha.setdefault(sha, []).append(path)
 
         for sha, hash_paths in sorted(by_sha.items(), key=lambda pair: (pair[0], str(pair[1][0]))):
@@ -623,7 +623,7 @@ class DocsAuditService:
             canonical = min(by_sha[sha], key=lambda p: str(p.relative_to(root)))
             if canonical.suffix.lower() not in TEXT_EXTENSIONS:
                 continue
-            text = canonical.read_text(encoding="utf-8")
+            text = _read_admitted_bytes(root, canonical).decode("utf-8")
             rel_path = str(canonical.relative_to(root))
             if _is_generated_output(rel_path, text):
                 continue
