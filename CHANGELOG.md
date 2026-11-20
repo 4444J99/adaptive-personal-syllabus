@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+- `docs/mentor-roadmap-state.md` — Sep 13 baseline → Nov 14 main reconciliation receipt for the #21 control plan: the four-PR merge wave (#70, #71, #72, #20), PR #19 closed unmerged, and a Wave 0 gate table with a verdict per gate at main `019dfc70` (#39 verified and closed; #34, #35, #38 half done with their own build plans; #32 ownerless with its R1–R3 successor plan named)
+
+### Changed
+- #21's Sep 13 "frozen inventory receipt" is superseded by `docs/mentor-roadmap-state.md` on every count (branches, PR states, CI state, release state)
+
 ## [0.6.0] - 2026-02-24
 
 ### Added
