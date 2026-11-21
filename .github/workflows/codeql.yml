@@ -19,7 +19,6 @@ jobs:
     name: Analyze Code
     runs-on: ubuntu-24.04
     timeout-minutes: 360
-    continue-on-error: true
 
     strategy:
       fail-fast: false
