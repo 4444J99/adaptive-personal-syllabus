@@ -1,2 +1,5 @@
 
 # removed inadvertently-committed local session artifacts (PII containment)
+
+__pycache__/
+*.pyc

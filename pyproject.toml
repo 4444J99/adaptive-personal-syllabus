@@ -11,7 +11,7 @@ license = {text = "MIT"}
 dependencies = [
     "click>=8.0",
     "PyYAML>=6.0",
-    "koinonia-db",
+    "koinonia-db @ git+https://github.com/organvm-vi-koinonia/koinonia-db.git@3fe455fcbdeca98ab209f38a6b892dc29217c6a1",
     "sqlalchemy>=2.0",
 ]
 
