@@ -76,6 +76,42 @@ jobs:
           assert payload["milestones"]["recommended_start_milestone"] is not None
           PY
 
+      # #38 (MTR-039): the committed report must be reproducible from the
+      # tree. Regeneration ignores only run-varying metadata (generated_at,
+      # root_path, snapshot block), the audit's own two outputs in the
+      # manifest (their hashes are one regeneration behind on this path),
+      # and the manifest-length-derived ingest counts; any other difference
+      # fails the job until the committed report is regenerated.
+      - name: Docs audit drift gate
+        run: |
+          python - <<'PY'
+          import json
+          from pathlib import Path
+
+          from adaptive_personal_syllabus.docs_audit import (
+              report_difference_summary,
+              reports_match,
+          )
+
+          regenerated = json.loads(Path("./docs-audit-ci.json").read_text())
+          committed = json.loads(
+              Path("docs/implementation/docs-audit-report.json").read_text()
+          )
+          if not reports_match(regenerated, committed):
+              print("Committed docs-audit report has drifted from the tree:")
+              for line in report_difference_summary(regenerated, committed):
+                  print(f"  - {line}")
+              print(
+                  "Regenerate it with: syllabus docs audit --root ./docs "
+                  "--snapshot docs-full-audit --format json "
+                  "--write-json docs/implementation/docs-audit-report.json "
+                  "--write-md docs/implementation/docs-audit-roadmap.md "
+                  "--db-path ./docs-audit-ci.db"
+              )
+              raise SystemExit(1)
+          print("Docs audit drift gate: regenerated report matches committed report.")
+          PY
+
       - name: Test with pytest
         run: pytest --cov=. --cov-report=xml --cov-report=term --cov-report=html
 

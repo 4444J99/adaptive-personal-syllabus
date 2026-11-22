@@ -4,6 +4,8 @@ from __future__ import annotations
 import hashlib
 import json
 import re
+import shutil
+import subprocess
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
@@ -258,6 +260,44 @@ EXECUTION_PRIORITY_HINTS: list[tuple[int, tuple[str, ...]]] = [
 
 STATUS_FILE_SUFFIXES = (".status.yaml", ".status.yml")
 
+# Verification-record files: evidence that an item is implemented, never a
+# discovery source (see _is_generated_output). One format only — a record
+# lives in `implementation/milestones/*.verified.yaml`, never as an
+# `evidence:` block inside a status yaml (#38 step 2).
+VERIFIED_FILE_SUFFIXES = (".verified.yaml", ".verified.yml")
+
+# Top-level report keys that vary run to run and carry no audit content.
+# The drift gate compares reports with these dropped (#38 step 5).
+DRIFT_COMPARISON_IGNORED_KEYS = ("generated_at", "root_path", "snapshot")
+
+
+class DocsAuditError(ValueError):
+    """A docs-audit claim file is broken: unknown ID or malformed evidence.
+
+    Raised (fail-closed) instead of producing a report: a claim that names
+    an item the audit cannot see, or evidence that is missing fields, is
+    not a warning — the issue's "reject unknown IDs" rule (#38).
+    """
+
+
+@dataclass(frozen=True)
+class VerificationRecord:
+    """One verified implementation claim for one suggestion ID (#38 step 2).
+
+    `head` is the merge commit on the target branch whose green checks are
+    the evidence; `pr` is the delivering pull request; `checks` names the
+    check runs (name + run id, each concluded success). The audit trusts
+    the record only after the ancestry check passes — the record is a
+    receipt, and the reviewer verifies the named checks at claim time.
+    """
+
+    suggestion_id: str
+    milestone: str
+    head: str
+    pr: int
+    checks: tuple[dict[str, Any], ...]
+    source_path: str
+
 
 @dataclass(frozen=True)
 class ExtractedItem:
@@ -390,14 +430,174 @@ def _load_milestone_status_overrides(root: Path) -> dict[str, str]:
     return overrides
 
 
+_SHA40 = re.compile(r"^[0-9a-f]{40}$")
+
+
+def _load_verification_records(
+    root: Path, known_ids: set[str]
+) -> list[VerificationRecord]:
+    """Load `*.verified.yaml` evidence, fail-closed on broken records.
+
+    Raises DocsAuditError when a file is malformed (missing fields, a head
+    that is not a full SHA, a non-integer PR, empty checks, a check entry
+    missing name/run id or concluded anything but success), when two
+    records claim the same item, or when a record names an unknown ID.
+    A record that passes this loader is well-formed; whether its head is
+    live evidence is decided by the ancestry check in `audit`, which
+    rejects stale heads with a reason instead of failing the run.
+    """
+    records: list[VerificationRecord] = []
+    seen: dict[str, str] = {}
+    milestone_dir = root / "implementation" / "milestones"
+    if not milestone_dir.exists():
+        return records
+
+    files = sorted(
+        path
+        for path in milestone_dir.iterdir()
+        if path.is_file() and any(path.name.endswith(suffix) for suffix in VERIFIED_FILE_SUFFIXES)
+    )
+    for path in files:
+        rel = str(path.relative_to(root))
+        data = yaml.safe_load(_read_admitted_bytes(root, path).decode("utf-8")) or {}
+        if not isinstance(data, dict):
+            raise DocsAuditError(f"{rel}: verification file is not a mapping")
+        milestone = str(data.get("milestone", "")).strip()
+        if not milestone:
+            raise DocsAuditError(f"{rel}: verification file has no milestone")
+        verifications = data.get("verifications")
+        if not isinstance(verifications, list):
+            raise DocsAuditError(f"{rel}: verification file has no verifications list")
+        for entry in verifications:
+            if not isinstance(entry, dict):
+                raise DocsAuditError(f"{rel}: verification entry is not a mapping")
+            suggestion_id = entry.get("suggestion_id")
+            head = entry.get("head")
+            pr = entry.get("pr")
+            checks = entry.get("checks")
+            if not isinstance(suggestion_id, str) or not suggestion_id.strip():
+                raise DocsAuditError(f"{rel}: verification entry has no suggestion_id")
+            suggestion_id = suggestion_id.strip()
+            if not isinstance(head, str) or not _SHA40.match(head):
+                raise DocsAuditError(
+                    f"{rel}: verification for {suggestion_id} has no 40-hex head"
+                )
+            if isinstance(pr, bool) or not isinstance(pr, int):
+                raise DocsAuditError(f"{rel}: verification for {suggestion_id} has no integer pr")
+            if not isinstance(checks, list) or not checks:
+                raise DocsAuditError(f"{rel}: verification for {suggestion_id} has no checks")
+            clean_checks: list[dict[str, Any]] = []
+            for check in checks:
+                if not isinstance(check, dict):
+                    raise DocsAuditError(
+                        f"{rel}: verification for {suggestion_id} has a non-mapping check"
+                    )
+                name = check.get("name")
+                run_id = check.get("run_id")
+                conclusion = check.get("conclusion")
+                if not isinstance(name, str) or not name.strip():
+                    raise DocsAuditError(
+                        f"{rel}: verification for {suggestion_id} has a check with no name"
+                    )
+                if isinstance(run_id, bool) or not isinstance(run_id, int):
+                    raise DocsAuditError(
+                        f"{rel}: verification for {suggestion_id} has a check with no integer run_id"
+                    )
+                if conclusion != "success":
+                    raise DocsAuditError(
+                        f"{rel}: verification for {suggestion_id} cites check {name!r} "
+                        f"concluded {conclusion!r}, not success"
+                    )
+                clean_checks.append(
+                    {"name": name.strip(), "run_id": run_id, "conclusion": conclusion}
+                )
+            if suggestion_id not in known_ids:
+                raise DocsAuditError(
+                    f"{rel}: verification names unknown suggestion {suggestion_id}"
+                )
+            if suggestion_id in seen:
+                raise DocsAuditError(
+                    f"{rel}: verification for {suggestion_id} duplicates {seen[suggestion_id]}"
+                )
+            seen[suggestion_id] = rel
+            records.append(
+                VerificationRecord(
+                    suggestion_id=suggestion_id,
+                    milestone=milestone,
+                    head=head,
+                    pr=pr,
+                    checks=tuple(clean_checks),
+                    source_path=rel,
+                )
+            )
+    return records
+
+
+def _resolve_audited_head(root: Path, audited_head: str | None) -> str | None:
+    """The head the audit's evidence is checked against, or None.
+
+    An explicit head must be a full SHA. Otherwise the current checkout's
+    HEAD is used (git finds the enclosing repo from the docs root). None
+    means the ancestry check cannot run and every record is rejected as
+    unverifiable — never silently trusted.
+    """
+    if audited_head is not None:
+        if not _SHA40.match(audited_head):
+            raise DocsAuditError(f"audited head {audited_head!r} is not a full SHA")
+        return audited_head
+    git = shutil.which("git")
+    if git is None:
+        return None
+    proc = subprocess.run(
+        [git, "-C", str(root), "rev-parse", "HEAD"],
+        capture_output=True, text=True, timeout=30, check=False,
+    )
+    if proc.returncode != 0:
+        return None
+    return proc.stdout.strip() or None
+
+
+def _record_head_is_ancestor(record_head: str, audited_head: str, root: Path) -> bool | None:
+    """True when the record head is an ancestor of the audited head.
+
+    False when git proves it is not (exit 1: stale head, or an unmerged
+    PR's head). None when the check itself cannot run — the object is
+    absent from this checkout (shallow clone, foreign head) or git failed
+    — so the record is rejected as unverifiable rather than trusted.
+    """
+    git = shutil.which("git")
+    if git is None:
+        return None
+    proc = subprocess.run(
+        [git, "-C", str(root), "merge-base", "--is-ancestor", record_head, audited_head],
+        capture_output=True, text=True, timeout=30, check=False,
+    )
+    if proc.returncode == 0:
+        return True
+    if proc.returncode == 1:
+        return False
+    return None
+
+
 def _aggregate_items(
     items: list[ExtractedItem],
     prefix: str,
     *,
     status_overrides: dict[str, str] | None = None,
+    verifications: dict[str, VerificationRecord] | None = None,
 ) -> list[dict[str, Any]]:
+    """Aggregate extracted items into report rows.
+
+    Status is `implemented` only for an item with a verified record (the
+    record passed the loader and the ancestry check); keyword matches and
+    status-yaml claims feed `implementation_claims` only and never promote.
+    `implementation_tags` is derived from the verification record, never
+    from keyword rules. `verification_status` is `verified` only with a
+    valid record, otherwise `unverified`, never null.
+    """
     grouped: dict[str, dict[str, Any]] = {}
     overrides = status_overrides or {}
+    verified = verifications or {}
     for item in items:
         normalized = _normalize_text(item.text)
         if len(normalized) < 5:
@@ -422,17 +622,36 @@ def _aggregate_items(
         if prefix == "feat" and item_id in overrides:
             claims.append(f"milestone.{overrides[item_id]}")
 
+        record = verified.get(item_id) if prefix == "feat" else None
+        if record is not None:
+            status = "implemented"
+            tags = [f"milestone.{record.milestone}"]
+            verification_status = "verified"
+            verification: dict[str, Any] | None = {
+                "head": record.head,
+                "pr": record.pr,
+                "milestone": record.milestone,
+                "checks": [dict(check) for check in record.checks],
+                "source_path": record.source_path,
+            }
+        else:
+            tags = []
+            verification_status = "unverified"
+            verification = None
+
         out_item = {
             "id": item_id,
             "normalized_text": normalized,
             "text": entry["text"],
             "status": status,
-            "implementation_tags": [],
+            "implementation_tags": tags,
             "implementation_claims": claims,
-            "verification_status": "unverified",
+            "verification_status": verification_status,
             "planned_milestone": milestone,
             "source_refs": collapsed_refs,
         }
+        if verification is not None:
+            out_item["verification"] = verification
         out.append(out_item)
 
     return sorted(out, key=lambda entry: (entry["status"], entry["text"].lower()))
@@ -590,15 +809,83 @@ def _is_generated_output(rel_path: str, text: str) -> bool:
     """Keep generated artifacts as inventory, not discovery authority."""
     if rel_path in LEGACY_GENERATED_PATHS or text.startswith("<!-- aps-generated: discovery-output -->"):
         return True
+    # Verification records are evidence about suggestions, never new
+    # suggestions themselves (#38 step 6: a .verified.yaml is never
+    # ingested as a suggestion source).
+    if any(rel_path.endswith(suffix) for suffix in VERIFIED_FILE_SUFFIXES):
+        return True
     if rel_path.endswith(".json"):
         try:
             data = json.loads(text)
         except ValueError:
             return False
         return isinstance(data, dict) and data.get("artifact_kind") in {
-            "generated-docs-audit", "generated-execution-plan"
+            "generated-docs-audit",
+            "generated-docs-audit-reconciliation",
+            "generated-execution-plan",
         }
     return False
+
+
+# The audit's own two outputs, dropped from the drift-gate manifest
+# comparison (see normalize_report_for_comparison): their hashes are
+# inherently one regeneration behind on the CI path.
+_DRIFT_SELF_OUTPUTS = {
+    "implementation/docs-audit-report.json",
+    "implementation/docs-audit-roadmap.md",
+}
+
+
+def normalize_report_for_comparison(report: dict[str, Any]) -> dict[str, Any]:
+    """Drop run-varying metadata so a regenerated report can be compared.
+
+    `generated_at` is always new, `root_path` depends on where the audit
+    ran, and the `snapshot` block records the throwaway ingest database —
+    none of them is audit content. The audit's own two outputs (the
+    committed report and the roadmap markdown) are also dropped from the
+    file manifest: when the report is regenerated with in-tree outputs
+    (the commit path) the CLI excludes its write targets from discovery,
+    and when regenerated with out-of-tree outputs (the CI path) they
+    appear with hashes one regeneration behind — so their manifest entries
+    can never match across the two paths. Every other file's manifest
+    entry is still compared in full, and the ingest counts (redundant
+    with the manifest length) are dropped with them; only
+    `all_files_ingested` is kept. Anything else that differs means the
+    committed report has drifted and the drift gate fails.
+    """
+    normalized = {
+        key: value for key, value in report.items() if key not in DRIFT_COMPARISON_IGNORED_KEYS
+    }
+    normalized["files"] = [
+        entry
+        for entry in report.get("files", [])
+        if entry.get("rel_path") not in _DRIFT_SELF_OUTPUTS
+    ]
+    verify = dict(report.get("ingest_verification", {}))
+    verify.pop("expected_file_count", None)
+    verify.pop("snapshot_doc_count", None)
+    normalized["ingest_verification"] = verify
+    return normalized
+
+
+def reports_match(regenerated: dict[str, Any], committed: dict[str, Any]) -> bool:
+    """True when a regenerated report reproduces the committed one."""
+    return normalize_report_for_comparison(regenerated) == normalize_report_for_comparison(committed)
+
+
+def report_difference_summary(regenerated: dict[str, Any], committed: dict[str, Any]) -> list[str]:
+    """One line per top-level key where regenerated and committed differ."""
+    left = normalize_report_for_comparison(regenerated)
+    right = normalize_report_for_comparison(committed)
+    lines: list[str] = []
+    for key in sorted(set(left) | set(right)):
+        if key not in left:
+            lines.append(f"{key}: missing from regenerated report")
+        elif key not in right:
+            lines.append(f"{key}: missing from committed report")
+        elif left[key] != right[key]:
+            lines.append(f"{key}: regenerated != committed")
+    return lines
 
 
 class DocsAuditService:
@@ -614,7 +901,24 @@ class DocsAuditService:
         root: Path,
         snapshot_name: str,
         exclude_paths: set[Path] | None = None,
+        display_root: Path | str | None = None,
+        audited_head: str | None = None,
     ) -> dict[str, Any]:
+        """Generate a docs-audit report.
+
+        `display_root` names the audited tree as invoked (e.g. `docs`);
+        when omitted the resolved path is recorded. The report's
+        `root_path` is the invoked name, never an absolute machine path,
+        so a committed report is reproducible from any checkout.
+        `audited_head` is the head verification records are checked
+        against; when omitted the enclosing checkout's HEAD is used.
+        """
+        # The invoked name, kept for the report; the resolved path drives
+        # ingestion so relative roots work from any working directory.
+        if display_root is not None:
+            report_root = str(display_root).removeprefix("./")
+        else:
+            report_root = str(root.expanduser().resolve())
         root = root.expanduser().resolve()
         excluded = {p.expanduser().resolve() for p in (exclude_paths or set())}
         ingestor = CorpusIngestor(self.storage, self.ledger)
@@ -658,10 +962,52 @@ class DocsAuditService:
             extracted_suggestions.extend(suggestions)
             extracted_use_cases.extend(use_cases)
 
+        # Claims first, so the loader can reject unknown IDs against the
+        # real item set: a status yaml naming an item the audit cannot see
+        # is a broken claim, not a warning (#38 step 2).
+        provisional = _aggregate_items(
+            extracted_suggestions,
+            prefix="feat",
+            status_overrides=status_overrides,
+        )
+        known_ids = {item["id"] for item in provisional}
+        unknown_claims = {
+            key: value for key, value in status_overrides.items() if key not in known_ids
+        }
+        if unknown_claims:
+            raise DocsAuditError(
+                "status override names unknown suggestion(s): "
+                + ", ".join(f"{key} ({value})" for key, value in sorted(unknown_claims.items()))
+            )
+        records = _load_verification_records(root, known_ids)
+        head = _resolve_audited_head(root, audited_head)
+        verified: dict[str, VerificationRecord] = {}
+        rejected_verifications: list[dict[str, Any]] = []
+        for record in records:
+            if head is None:
+                reason = "no-audited-head"
+            else:
+                ancestry = _record_head_is_ancestor(record.head, head, root)
+                if ancestry is True:
+                    verified[record.suggestion_id] = record
+                    continue
+                reason = "stale-head" if ancestry is False else "unverifiable-head"
+            rejected_verifications.append(
+                {
+                    "suggestion_id": record.suggestion_id,
+                    "head": record.head,
+                    "pr": record.pr,
+                    "milestone": record.milestone,
+                    "source_path": record.source_path,
+                    "reason": reason,
+                }
+            )
+
         aggregated_suggestions = _aggregate_items(
             extracted_suggestions,
             prefix="feat",
             status_overrides=status_overrides,
+            verifications=verified,
         )
         aggregated_use_cases = _aggregate_items(extracted_use_cases, prefix="usecase")
         milestone_summary, recommended_start = _build_milestone_summary(aggregated_suggestions)
@@ -676,12 +1022,12 @@ class DocsAuditService:
             "schema_version": "2.0",
             "artifact_kind": "generated-docs-audit",
             "verification_status": "unverified",
-            "unmatched_implementation_claims": {
-                key: value for key, value in status_overrides.items()
-                if key not in {item["id"] for item in aggregated_suggestions}
-            },
+            "unmatched_implementation_claims": {},
+            "rejected_verifications": sorted(
+                rejected_verifications, key=lambda row: row["suggestion_id"]
+            ),
             "generated_at": utcnow_iso(),
-            "root_path": str(root),
+            "root_path": report_root,
             "snapshot": {
                 "snapshot_id": snapshot.snapshot_id,
                 "snapshot_name": snapshot.snapshot_name,
