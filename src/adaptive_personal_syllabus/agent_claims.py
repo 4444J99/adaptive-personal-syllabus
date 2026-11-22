@@ -261,14 +261,15 @@ def evaluate_claim(
             "holding_sequence": None,
             "freed_sequences": [],
         }
-    freed = [
-        lease
-        for lease in registry.get("leases", [])
-        if lease.get("status") == "active"
-        and _scopes_overlap(scope, [str(p) for p in lease.get("scope", [])])
-        and (_expiry_or_none(lease) is not None)
-        and _expiry_or_none(lease) <= now
-    ]
+    freed: list[dict[str, Any]] = []
+    for lease in registry.get("leases", []):
+        if lease.get("status") != "active":
+            continue
+        if not _scopes_overlap(scope, [str(p) for p in lease.get("scope", [])]):
+            continue
+        lease_expiry = _expiry_or_none(lease)
+        if lease_expiry is not None and lease_expiry <= now:
+            freed.append(lease)
     for lease in registry.get("leases", []):
         if lease.get("status") != "active":
             continue
