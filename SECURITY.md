@@ -33,3 +33,12 @@ Removing a tracked file is not evidence that historical disclosure has been
 reversed. Preserve custody and review history, published artifacts, permissions
 and any required credential rotation separately. Issues #23, #33, #34 and #42
 track the remaining boundary work.
+
+## Classification inventory
+
+`docs/privacy-classification.yaml` is the classification inventory for every
+tracked path (`public` / `private-never-in-git` / `review`), enforced by
+`tests/test_privacy_classification.py` and the privacy-classification guard
+workflow; decisions are recorded in `docs/adr/003-privacy-classification.md`.
+The guard is CI-advisory only while main is unprotected: a direct push can
+still bypass it, so the inventory is a check, not enforcement.

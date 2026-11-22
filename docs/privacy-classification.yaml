@@ -1,0 +1,134 @@
+# Privacy classification inventory — adaptive-personal-syllabus #33 (MTR-006).
+#
+# Every tracked path is covered by exactly one entry. Matching rule, as
+# enforced by tests/test_privacy_classification.py: `*` matches within one
+# path segment, `**` matches zero or more segments.
+#
+# Classes:
+#   public — reusable code, public documentation, synthetic tests; may live
+#     in public git.
+#   private-never-in-git — local runtime databases, credentials, populated
+#     personal data, build outputs; must never be tracked.
+#   review — rights or exposure uncertain; stays unresolved, never silently
+#     relicensed or moved by this plan.
+#
+# Decisions are recorded in docs/adr/003-privacy-classification.md.
+# Verified against live main f8325de846d19a9f25c38d2606a7baace5fddbae.
+schema_version: "1.0"
+repo: adaptive-personal-syllabus
+verified_at_head: f8325de846d19a9f25c38d2606a7baace5fddbae
+issue: 33
+home_path_allowlist: []
+entries:
+  - patterns: ["src/adaptive_personal_syllabus/*.py"]
+    class: public
+    evidence: "Reusable code (SECURITY.md: public source holds reusable code)"
+    disposition: keep
+  - patterns: ["tests/*.py"]
+    class: public
+    evidence: "Synthetic tests (SECURITY.md)"
+    disposition: keep
+  - patterns: [".github/**"]
+    class: public
+    evidence: "Workflow, template and ownership config for public CI"
+    disposition: keep
+  - patterns: ["docs/adr/*.md"]
+    class: public
+    evidence: "Architecture decision records (public documentation)"
+    disposition: keep
+  - patterns: ["docs/implementation/**"]
+    class: public
+    evidence: "Public implementation docs and audit reports, generated from the public tree"
+    disposition: keep
+  - patterns: ["docs/pitch/*"]
+    class: public
+    evidence: "Public pitch artifact"
+    disposition: keep
+  - patterns: ["docs/*.md"]
+    class: public
+    evidence: "Top-level public documentation"
+    disposition: keep
+  - patterns: ["docs/*.yaml"]
+    class: public
+    evidence: "Public seed and config docs (docs/seed.yaml; this inventory)"
+    disposition: keep
+  - patterns: ["docs/source-materials/specs/*"]
+    class: public
+    evidence: "Public spec fixtures"
+    disposition: keep
+  - patterns: ["docs/source-materials/PROVENANCE.yaml"]
+    class: public
+    evidence: "Provenance by hash; absolute home paths redacted to repo-relative in #33 (2026-11-21)"
+    disposition: keep
+  - patterns: ["docs/syllabusEVOLUTION/*"]
+    class: public
+    evidence: "Author's own syllabus drafts, already public in this repo"
+    disposition: keep
+  - patterns: ["data/*.json"]
+    class: public
+    evidence: "Synthetic sample data (Beginner Explorer learner, no real person)"
+    disposition: keep
+  - patterns: ["ecosystem/**"]
+    class: public
+    evidence: "Public ecosystem maps"
+    disposition: keep
+  - patterns: ["*.yaml"]
+    class: public
+    evidence: "Public repo-level config (ecosystem.yaml, network-map.yaml, seed.yaml)"
+    disposition: keep
+  - patterns: ["*.md"]
+    class: public
+    evidence: "Public repo-level documentation and policy (README, SECURITY, BRANCHES, AGENTS, CLAUDE, GEMINI, CHANGELOG)"
+    disposition: keep
+  - patterns: ["*.toml"]
+    class: public
+    evidence: "Build config (pyproject.toml)"
+    disposition: keep
+  - patterns: ["LICENSE"]
+    class: public
+    evidence: "MIT license"
+    disposition: keep
+  - patterns: [".editorconfig", ".gitattributes", ".gitignore"]
+    class: public
+    evidence: "Repo tooling config"
+    disposition: keep
+  - patterns: ["docs/aiChatsThread/*"]
+    class: review
+    evidence: "Author's AI-chat exports (Grok/Claude/GPT/Gemini); model-output rights not yet evidenced; #76 third-party precedent applies to any non-owned material"
+    disposition: "keep pending owner rights decision; do not move or relicense in this PR"
+  - patterns: ["docs/narrative-workbook/*"]
+    class: review
+    evidence: "Personal writing guides naming a third party; personal content, exposure decision owed"
+    disposition: "keep pending owner decision"
+  - patterns: ["docs/source-materials/theory/*"]
+    class: review
+    evidence: "Duplicates of aiChatsThread/narrative-workbook content under source-materials; same rights question as the originals"
+    disposition: "keep pending the same decision; deduplication is a separate intention"
+  - patterns: ["**/*.db", "**/*.sqlite", "**/*.sqlite3", "**/*.sqlite-*", "**/*.db-journal", "**/*.db-wal", "**/*.db-shm"]
+    class: private-never-in-git
+    evidence: "Local runtime databases belong outside public git (SECURITY.md); the tracked audit database was removed in #33"
+    disposition: remove-from-tracking
+  - patterns: ["**/__pycache__/*", "**/*.pyc", "**/*.pyo"]
+    class: private-never-in-git
+    evidence: "Build outputs; regenerable; tracked .pyc already dropped by #80"
+    disposition: remove-from-tracking
+  - patterns: ["**/*.egg-info", "**/*.egg-info/*"]
+    class: private-never-in-git
+    evidence: "Build outputs; regenerable; removed in #33"
+    disposition: remove-from-tracking
+  - patterns: ["**/.env*"]
+    class: private-never-in-git
+    evidence: "Credentials and local config belong in a secret manager or runtime config, never source control (SECURITY.md)"
+    disposition: remove-from-tracking
+  - patterns: ["**/.private/**", "**/.secrets/**"]
+    class: private-never-in-git
+    evidence: "Default discovery exclusions (SECURITY.md); private custody outside public git"
+    disposition: remove-from-tracking
+  - patterns: ["**/.adaptive-syllabus/**"]
+    class: private-never-in-git
+    evidence: "Default runtime data directory (storage.py DEFAULT_DATA_DIR); local runtime state"
+    disposition: remove-from-tracking
+  - patterns: ["docs-audit-ci.*", ".coverage", "htmlcov/**", "**/.pytest_cache/**", "**/.mypy_cache/**", "**/.ruff_cache/**"]
+    class: private-never-in-git
+    evidence: "CI and tool artifacts; regenerated every run, never tracked"
+    disposition: remove-from-tracking
