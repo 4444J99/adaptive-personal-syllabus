@@ -2,9 +2,9 @@
 # Docs Audit Report
 Discovery only: implementation is unverified; zero verified items is not zero progress.
 
-- Generated at: `2026-11-22T15:52:59+00:00`
+- Generated at: `2026-11-22T19:21:17+00:00`
 - Root: `docs`
-- Snapshot: `docs-full-audit` (id=1)
+- Snapshot: `docs-full-audit` (id=2)
 - Files discovered: `98`
 - Files ingested: `98`
 - Ingest complete: `True`
