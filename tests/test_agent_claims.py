@@ -13,7 +13,7 @@ from the repo root and asserts the shipped file is consistent.
 
 from __future__ import annotations
 
-from datetime import datetime, UTC
+from datetime import UTC, datetime
 from pathlib import Path
 
 from adaptive_personal_syllabus.agent_claims import (
