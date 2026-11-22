@@ -62,6 +62,18 @@ syllabus plan encounter 1 --route no_response_now --db-path ./local.db
 
 `--module-id` selects a particular module; otherwise the first module is shown. The other optional routes are `short_written` and `spoken_under_two_minutes`. These commands only display stored material: they create no artifact, response, completion record or assessment. A prepared encounter remains `prepared_not_started` and `unassessed` until valid learner evidence exists. Understanding, enjoyment or a useful question can be enough; no public output is required.
 
+## One-shot generation (legacy)
+
+The independent legacy `generate` command prints a learning path without a profile or a database. It is not the versioned `plan generate` persistence interface:
+
+```sh
+syllabus generate --organs I,II,V --level beginner --name "Jane Doe" --format md
+```
+
+`--organs` is required (comma-separated organ codes). `--level` defaults to `unassessed` (`unassessed`, `beginner`, `intermediate`, `advanced`); `--name` defaults to `Learner`; `--format` defaults to `text` (`text`, `json`, `md`). The command writes nothing to disk: it prints the path and exits.
+
+`aps-data-export` writes sample learning paths (beginner, intermediate, advanced) to `data/sample-learning-paths.json`. Local data defaults to `~/.adaptive-syllabus/` when no `--db-path` or `--output` is given.
+
 ## Inspect source support
 
 Use each plan candidate's `document_id` and `chunk:N` locator:

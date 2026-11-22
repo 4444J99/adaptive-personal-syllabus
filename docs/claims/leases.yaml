@@ -79,3 +79,17 @@ grant_history:
     expiry: "2026-11-29T12:00:00Z"
     receipt: "Lease grant on #21 (comment 7079757581)"
     status: granted
+
+  - sequence: 4
+    grantee: ranked-queue-build
+    issue: 40
+    base: 6b2b4b9005004d9300f61392e38405741a1642a0
+    head: 6b2b4b9005004d9300f61392e38405741a1642a0
+    branch: work/mentor/capture-residue
+    scope:
+      - README.md
+      - docs/claims/leases.yaml
+      - BRANCHES.md
+    expiry: "2026-11-29T12:00:00Z"
+    receipt: "Lease grant on #21 (comment 7082866474)"
+    status: granted
