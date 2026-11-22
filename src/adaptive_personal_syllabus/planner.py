@@ -289,19 +289,28 @@ class Planner:
             },
         }
 
-        db_plan_id = self.storage.insert_complete_plan(plan)
-        plan["db_plan_id"] = db_plan_id
+        db_plan_id = None
+        with self.storage.connection() as conn:
+            # The plan row and its plan.generate event share one
+            # transaction (#52, MTR-022): a crash between them can no
+            # longer leave state without its ledger event, or an event
+            # without its state. The profile.load event above stays
+            # outside it: it records a read, not a state write, so
+            # there is no transaction for it to share.
+            db_plan_id = self.storage.insert_complete_plan(plan, conn=conn)
+            plan["db_plan_id"] = db_plan_id
 
-        self.ledger.append(
-            "plan.generate",
-            {
-                "plan_id": plan_uid,
-                "db_plan_id": db_plan_id,
-                "snapshot_id": snapshot_id,
-                "module_count": len(module_rows),
-                "total_hours": path.total_hours,
-                "evidence_hash_count": len(evidence_sha256),
-            },
-        )
+            self.ledger.append(
+                "plan.generate",
+                {
+                    "plan_id": plan_uid,
+                    "db_plan_id": db_plan_id,
+                    "snapshot_id": snapshot_id,
+                    "module_count": len(module_rows),
+                    "total_hours": path.total_hours,
+                    "evidence_hash_count": len(evidence_sha256),
+                },
+                conn=conn,
+            )
 
         return plan

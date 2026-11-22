@@ -5,7 +5,7 @@ from __future__ import annotations
 import json
 import sqlite3
 from collections.abc import Iterator, Sequence
-from contextlib import contextmanager
+from contextlib import contextmanager, nullcontext
 from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
@@ -121,6 +121,14 @@ class Storage:
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             document_id INTEGER NOT NULL REFERENCES documents(id),
             payload_json TEXT NOT NULL)""")
+        # Ledger checkpoint (#52, MTR-022): one row, the latest committed
+        # chain head. Earlier checkpoints are superseded — the ledger
+        # itself is the history — so the table keeps a single row (id 1).
+        conn.execute("""CREATE TABLE IF NOT EXISTS ledger_checkpoints (
+            id INTEGER PRIMARY KEY CHECK (id = 1),
+            event_count INTEGER NOT NULL,
+            head_hash TEXT NOT NULL,
+            created_at TEXT NOT NULL)""")
         self._backfill_snapshot_bindings(conn)
 
     def initialize_schema(self) -> None:
@@ -691,15 +699,88 @@ class Storage:
         )
         return self._cursor_lastrowid(cur)
 
+    def ledger_event_count(self, *, conn: sqlite3.Connection | None = None) -> int:
+        if conn is None:
+            with self.connection() as db_conn:
+                return self.ledger_event_count(conn=db_conn)
+        row = conn.execute("SELECT COUNT(*) FROM ledger_events").fetchone()
+        return int(row[0])
+
+    def record_ledger_checkpoint(
+        self,
+        event_count: int,
+        head_hash: str,
+        *,
+        conn: sqlite3.Connection | None = None,
+    ) -> None:
+        """Replace the latest checkpoint with the given chain head.
+
+        Callers pass the connection their ledger append already uses, so
+        the checkpoint commits or rolls back with that append.
+        """
+        if conn is None:
+            with self.connection() as db_conn:
+                return self.record_ledger_checkpoint(event_count, head_hash, conn=db_conn)
+        conn.execute("DELETE FROM ledger_checkpoints")
+        conn.execute(
+            """
+            INSERT INTO ledger_checkpoints(id, event_count, head_hash, created_at)
+            VALUES (1, ?, ?, ?)
+            """,
+            (event_count, head_hash, utcnow_iso()),
+        )
+
+    def latest_ledger_checkpoint(
+        self, *, conn: sqlite3.Connection | None = None
+    ) -> dict[str, Any] | None:
+        if conn is None:
+            with self.connection() as db_conn:
+                return self.latest_ledger_checkpoint(conn=db_conn)
+        row = conn.execute(
+            "SELECT event_count, head_hash, created_at FROM ledger_checkpoints WHERE id = 1"
+        ).fetchone()
+        return dict(row) if row else None
+
+    def plans_missing_ledger_events(self) -> list[int]:
+        """Plan rows with no matching plan.generate ledger event.
+
+        A plan row and its plan.generate event are written in one
+        transaction (#52); a row without its event means the write
+        sequence did not complete. Snapshots have no equivalent check:
+        corpus ingest legitimately creates snapshots with no docs.audit
+        event, so only plans are cross-checked here.
+        """
+        with self.connection() as conn:
+            plan_ids = [
+                int(row[0]) for row in conn.execute("SELECT id FROM plans").fetchall()
+            ]
+            event_plan_ids: set[int] = set()
+            for row in conn.execute(
+                "SELECT payload_json FROM ledger_events WHERE event_type = 'plan.generate'"
+            ).fetchall():
+                try:
+                    payload = json.loads(str(row[0]))
+                except (json.JSONDecodeError, TypeError, ValueError):
+                    continue
+                if isinstance(payload, dict) and isinstance(
+                    payload.get("db_plan_id"), int
+                ):
+                    event_plan_ids.add(int(payload["db_plan_id"]))
+        return [plan_id for plan_id in plan_ids if plan_id not in event_plan_ids]
+
     def iter_ledger_events(self) -> list[dict[str, Any]]:
         with self.connection() as conn:
             rows = conn.execute("SELECT * FROM ledger_events ORDER BY id ASC").fetchall()
         return [dict(r) for r in rows]
 
-    def insert_complete_plan(self, plan: dict[str, Any]) -> int:
+    def insert_complete_plan(
+        self, plan: dict[str, Any], *, conn: sqlite3.Connection | None = None
+    ) -> int:
         """Atomically persist both compatible projections and the exact versioned payload."""
         json.dumps(plan, allow_nan=False)
-        with self.connection() as conn:
+        cm = nullcontext(conn) if conn is not None else self.connection()
+        with cm as db_conn:
+            conn = db_conn
             profile = plan["profile"]
             cur = conn.execute(
                 "INSERT INTO profiles(name,level,goals_json,context_json,created_at) VALUES(?,?,?,?,?)",
