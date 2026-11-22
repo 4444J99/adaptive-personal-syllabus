@@ -13,7 +13,7 @@ from the repo root and asserts the shipped file is consistent.
 
 from __future__ import annotations
 
-from datetime import datetime, timezone
+from datetime import datetime, UTC
 from pathlib import Path
 
 from adaptive_personal_syllabus.agent_claims import (
@@ -28,7 +28,7 @@ from adaptive_personal_syllabus.agent_claims import (
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
 MAIN_HEAD = "8dc861bcdc0d0792e0685ba577ee566b36a455a2"
-NOW = datetime(2026, 11, 22, 11, 15, tzinfo=timezone.utc)
+NOW = datetime(2026, 11, 22, 11, 15, tzinfo=UTC)
 FUTURE = "2030-01-01T00:00:00Z"
 PAST = "2026-11-20T12:00:00Z"
 

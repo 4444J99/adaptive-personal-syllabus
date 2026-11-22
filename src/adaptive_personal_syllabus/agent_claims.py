@@ -40,7 +40,7 @@ from __future__ import annotations
 import argparse
 import fnmatch
 import json
-from datetime import datetime, timezone
+from datetime import datetime, UTC
 from pathlib import Path
 from typing import Any
 
@@ -77,9 +77,9 @@ def load_inventory(path: Path | str = DEFAULT_INVENTORY_PATH) -> dict[str, Any]:
 
 def parse_time(value: str) -> datetime:
     """An ISO-8601 timestamp as an aware UTC datetime (naive reads as UTC)."""
-    parsed = datetime.fromisoformat(value.replace("Z", "+00:00"))
+    parsed = datetime.fromisoformat(value)
     if parsed.tzinfo is None:
-        parsed = parsed.replace(tzinfo=timezone.utc)
+        parsed = parsed.replace(tzinfo=UTC)
     return parsed
 
 
@@ -312,7 +312,7 @@ def self_check(
 ) -> list[str]:
     """Validate the registry itself; an empty list means it is consistent."""
     violations: list[str] = []
-    now = datetime.now(timezone.utc)
+    now = datetime.now(UTC)
     leases = registry.get("leases", [])
     sequences: list[Any] = []
     for lease in leases:
@@ -391,7 +391,7 @@ def pr_check(
     granted. A PR that changes nothing under any active lease passes.
     """
     violations = self_check(registry, inventory)
-    now = datetime.now(timezone.utc)
+    now = datetime.now(UTC)
     live = active_leases(registry, now)
     own = [lease for lease in live if lease.get("branch") == branch]
     if own:
@@ -465,7 +465,7 @@ def main(argv: list[str] | None = None) -> int:
         now = (
             parse_time(args.now)
             if args.now
-            else datetime.now(timezone.utc)
+            else datetime.now(UTC)
         )
         verdict = evaluate_claim(
             registry, claim, now=now, main_head=args.main_head, inventory=inventory
