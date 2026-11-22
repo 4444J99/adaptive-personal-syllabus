@@ -16,7 +16,7 @@ dependencies = [
 ]
 
 [project.optional-dependencies]
-dev = ["pytest==9.1.1", "pytest-cov==7.1.0", "ruff==0.16.7", "mypy==2.3.1", "types-PyYAML==6.0.12.20260906"]
+dev = ["pytest==9.1.1", "pytest-cov==7.1.0", "ruff==0.16.7", "mypy==2.4.1", "types-PyYAML==6.0.12.20260906"]
 
 [project.scripts]
 syllabus = "adaptive_personal_syllabus.core:cli"
