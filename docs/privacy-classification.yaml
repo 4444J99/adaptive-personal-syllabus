@@ -14,9 +14,11 @@
 #
 # Decisions are recorded in docs/adr/003-privacy-classification.md.
 # Verified against live main f8325de846d19a9f25c38d2606a7baace5fddbae.
+# Amended by #42 (MTR-008, ADR 005): synthetic test-fixture entry added;
+# re-verified against live main 363c7b1c4eba8c82159cd37397962a67a243e612.
 schema_version: "1.0"
 repo: adaptive-personal-syllabus
-verified_at_head: f8325de846d19a9f25c38d2606a7baace5fddbae
+verified_at_head: 363c7b1c4eba8c82159cd37397962a67a243e612
 issue: 33
 home_path_allowlist: []
 entries:
@@ -27,6 +29,10 @@ entries:
   - patterns: ["tests/*.py"]
     class: public
     evidence: "Synthetic tests (SECURITY.md)"
+    disposition: keep
+  - patterns: ["tests/fixtures/**"]
+    class: public
+    evidence: "Synthetic test fixtures, invented content only (ADR 005, #42 MTR-008)"
     disposition: keep
   - patterns: [".github/**"]
     class: public

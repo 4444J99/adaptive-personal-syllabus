@@ -16,16 +16,26 @@ Understanding, enjoyment, a better question or a useful action may complete an e
 
 ## Install and run
 
-Python 3.11 or newer is required. From this checkout, install the existing seed-data dependency next to APS:
+Python 3.11 or newer is required. From a clean public checkout alone:
 
 ```sh
-git clone https://github.com/organvm-vi-koinonia/koinonia-db.git ../koinonia-db
-pip install ../koinonia-db
 pip install -e '.[dev]'
 syllabus corpus ingest --root ./docs --snapshot local-docs --db-path ./local.db
 syllabus profile init --name Learner --organs I --purpose evaluate --phone-only --output ./profile.json --db-path ./local.db
-syllabus plan generate --profile ./profile.json --seed-dir ../koinonia-db/seed --format json --db-path ./local.db
+syllabus plan generate --profile ./profile.json --seed-dir ./tests/fixtures/seed --format json --db-path ./local.db
 syllabus plan show 1 --format md --db-path ./local.db
+```
+
+The `koinonia-db` dependency resolves automatically from the canonical
+`4444J99/koinonia-db` URL pinned in `pyproject.toml` — no sibling checkout
+and no manual install step. The `--seed-dir` above points at the synthetic
+fixture seed (`tests/fixtures/seed`, invented content only), so the
+end-to-end run works from the public clone alone. For real seed content,
+clone the canonical repo next to APS and pass its seed directory instead:
+
+```sh
+git clone https://github.com/4444J99/koinonia-db.git ../koinonia-db
+syllabus plan generate --profile ./profile.json --seed-dir ../koinonia-db/seed --format json --db-path ./local.db
 ```
 
 Keep profiles, databases, reading histories and responses private and outside version control. The default level is `unassessed`; a chosen difficulty is a configuration preference, not a competence score. Existing organ topics are software options, not a compulsory personal syllabus.
@@ -82,7 +92,7 @@ Audio suits exposition. Notation, diagrams, code, arguments and literary form re
 ```sh
 python -m pytest -q
 ruff check .
-mypy src --ignore-missing-imports
+mypy src
 ```
 
 See [fingerprint and rollback contract](docs/implementation/learning-plan-integrity-v2.md). The independent legacy `generate` and database-backed generator are not the versioned `plan generate` persistence interface. Chamber hooks remain no-op extension points. External model personalization, finished multi-format artifacts and publication transports are roadmap work, not shipped behavior.

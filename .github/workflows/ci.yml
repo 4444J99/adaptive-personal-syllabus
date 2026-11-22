@@ -26,11 +26,11 @@ jobs:
 
       - name: Clone koinonia-db seed data
         run: |
-          git clone https://github.com/organvm-vi-koinonia/koinonia-db.git ../koinonia-db
+          git clone https://github.com/4444J99/koinonia-db.git ../koinonia-db
           git -C ../koinonia-db checkout --detach 3fe455fcbdeca98ab209f38a6b892dc29217c6a1
 
       - name: Install koinonia-db from git
-        run: pip install "koinonia-db @ git+https://github.com/organvm-vi-koinonia/koinonia-db.git@3fe455fcbdeca98ab209f38a6b892dc29217c6a1"
+        run: pip install "koinonia-db @ git+https://github.com/4444J99/koinonia-db.git@3fe455fcbdeca98ab209f38a6b892dc29217c6a1"
 
       - name: Install dependencies
         run: |
@@ -41,7 +41,7 @@ jobs:
         run: ruff check .
 
       - name: Type check with mypy
-        run: mypy src --ignore-missing-imports
+        run: mypy src
 
       - name: CLI smoke test
         run: |
@@ -94,3 +94,40 @@ jobs:
           fail_ci_if_error: false
           flags: unittests
           name: codecov-${{ matrix.python-version }}
+
+  # Q3 guard (#42, MTR-008): a clean public checkout builds, passes, and
+  # runs the documented end-to-end flow with no sibling koinonia-db clone
+  # and no credentials. The `koinonia-db` dependency resolves from the
+  # canonical URL in pyproject.toml; tests use the synthetic fixture seed.
+  clean-checkout:
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v7
+
+      - name: Set up Python 3.12
+        uses: actions/setup-python@v7
+        with:
+          python-version: "3.12"
+          cache: pip
+
+      - name: Install from the public clone alone
+        run: |
+          python -m pip install --upgrade pip
+          pip install -e .[dev]
+
+      - name: Lint with ruff
+        run: ruff check .
+
+      - name: Type check with mypy
+        run: mypy src
+
+      - name: Test with pytest (no sibling seed)
+        run: pytest -q
+
+      - name: Synthetic end-to-end run
+        run: |
+          syllabus corpus ingest --root ./docs --snapshot clean-checkout --db-path ./clean.db
+          syllabus profile init --name Learner --organs I --purpose evaluate --phone-only --output ./profile.json --db-path ./clean.db
+          syllabus plan generate --profile ./profile.json --seed-dir ./tests/fixtures/seed --format json --db-path ./clean.db
+          syllabus plan show 1 --format md --db-path ./clean.db
