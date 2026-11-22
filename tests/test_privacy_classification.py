@@ -59,15 +59,21 @@ BINARY_SUFFIXES = {".db", ".pyc", ".pyo", ".png", ".jpg", ".jpeg", ".gif", ".ico
 
 
 def tracked_paths() -> list[str]:
-    """Tracked paths at the checkout head, via `git ls-files`."""
+    """Tracked paths at the checkout head, via `git ls-files -z`.
+
+    The `-z` form is load-bearing: plain `git ls-files` C-quotes non-ASCII
+    paths (the repo tracks files whose names carry a curly quote and an
+    emoji), which would come back as octal escapes wrapped in double quotes
+    and match nothing on disk or in the inventory.
+    """
     result = subprocess.run(
-        ["git", "ls-files"],
+        ["git", "ls-files", "-z"],
         cwd=REPO_ROOT,
         capture_output=True,
         text=True,
         check=True,
     )
-    return [line for line in result.stdout.splitlines() if line]
+    return [line for line in result.stdout.split("\x00") if line]
 
 
 def is_forbidden(path: str) -> bool:
