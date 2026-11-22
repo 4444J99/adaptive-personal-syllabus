@@ -175,6 +175,17 @@
   verification — the steward corroborates receipts against run
   records. If that boundary ever proves insufficient, the fix is a
   stronger reviewer identity, not a weaker contract.
+- The `leases` fence cannot cover an in-flight grant while the
+  shipped-registry test pins `leases == []`: this PR records its grant
+  in `grant_history`, per the #36 precedent, so the claim check's
+  scope fencing does not apply to it — the grant record on #21 is the
+  authoritative act, and the merge-evidence module reads the grantee
+  from `grant_history` for its self-approval comparison. The ADR 006
+  sentence "a future grant goes in `leases` while in flight" describes
+  a mechanism whose test guard has not been built yet; until the
+  shipped-registry test is revised to allow an in-flight lease, the
+  fence stays dormant for grants recorded this way. That revision is a
+  separate decision, not smuggled into this PR.
 - The `check_run` trigger only takes effect after this workflow lands
   on main; on the PR that introduces it, re-evaluation after CI
   completes is a manual re-run. A PR whose checks complete after the

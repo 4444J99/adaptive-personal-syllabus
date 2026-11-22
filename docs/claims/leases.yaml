@@ -10,14 +10,19 @@
 # until the steward flips it to expired. Fulfilled and expired leases move
 # to grant_history; only `leases` fences.
 #
-# The active list holds the grant in flight: sequence 2 (#37, this PR).
-# The first grant (#36) is fulfilled — its work merged via PR #86 at
-# 38d87112 — and sits in grant_history with its receipt. The steward
-# flips sequence 2 to fulfilled when this PR merges.
+# The active list is empty at this head. Grants are recorded in
+# grant_history with their receipts, per the #36 precedent — the shipped-
+# registry test (tests/test_agent_claims.py) pins the registry to no
+# active lease, so a grant in flight is recorded in grant_history and
+# the `leases` fence does not cover it; the grant record on #21 is the
+# authoritative act (ADR 006). The steward flips a grant to fulfilled
+# when its work merges. The first grant (#36) is fulfilled — its work
+# merged via PR #86 at 38d87112.
 #
-# Amended by #37 (MTR-011, ADR 007): sequence 2 granted in `leases` (in
-# flight); sequence 1 flipped to fulfilled (work merged via PR #86 at
-# 38d87112); re-verified against live main 38d87112.
+# Amended by #37 (MTR-011, ADR 007): sequence 2 recorded in
+# grant_history (grant on #21, comment 7079757581); sequence 1 flipped
+# to fulfilled (work merged via PR #86 at 38d87112); re-verified against
+# live main 38d87112.
 #
 # Scope entries are repo-relative paths. An entry naming a file covers
 # that file; an entry ending in `/` covers everything under that directory.
@@ -35,25 +40,7 @@ unowned_branches:
   - branch: wip/preserve-2026-05-31-adaptive-personal-syllabus
     reason: "Preservation ref (#40); recover unique hunks only, no wholesale merge, no deletion."
     owner_issue: 40
-leases:
-  - sequence: 2
-    grantee: ranked-queue-build
-    issue: 37
-    base: 38d871128b3509c1da843c28208a4a15fc0ed58e
-    head: 38d871128b3509c1da843c28208a4a15fc0ed58e
-    branch: work/mentor/merge-evidence
-    scope:
-      - docs/adr/007-merge-evidence.md
-      - docs/merge-evidence.md
-      - src/adaptive_personal_syllabus/merge_evidence.py
-      - tests/test_merge_evidence.py
-      - .github/workflows/merge-evidence.yml
-      - docs/claims/leases.yaml
-      - BRANCHES.md
-      - AGENTS.md
-    expiry: "2026-11-29T12:00:00Z"
-    receipt: "Lease grant on #21 (comment 7079757581)"
-    status: active
+leases: []
 grant_history:
   - sequence: 1
     grantee: ranked-queue-build
@@ -74,3 +61,21 @@ grant_history:
     expiry: "2026-11-29T12:00:00Z"
     receipt: "Lease grant on #21 (comment 7078376585)"
     status: fulfilled
+  - sequence: 2
+    grantee: ranked-queue-build
+    issue: 37
+    base: 38d871128b3509c1da843c28208a4a15fc0ed58e
+    head: 38d871128b3509c1da843c28208a4a15fc0ed58e
+    branch: work/mentor/merge-evidence
+    scope:
+      - docs/adr/007-merge-evidence.md
+      - docs/merge-evidence.md
+      - src/adaptive_personal_syllabus/merge_evidence.py
+      - tests/test_merge_evidence.py
+      - .github/workflows/merge-evidence.yml
+      - docs/claims/leases.yaml
+      - BRANCHES.md
+      - AGENTS.md
+    expiry: "2026-11-29T12:00:00Z"
+    receipt: "Lease grant on #21 (comment 7079757581)"
+    status: granted

@@ -51,14 +51,19 @@ jobs:
 
       - name: Evaluate merge evidence
         env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           PYTHONPATH: src
         run: |
+          echo "${{ secrets.GITHUB_TOKEN }}" > "$RUNNER_TEMP/merge-evidence-token"
           HEAD="${{ github.event.pull_request.head.sha || github.event.check_run.head_sha }}"
           python -m adaptive_personal_syllabus.merge_evidence \
             --repo "${{ github.repository }}" \
             --head "$HEAD" \
+            --token-file "$RUNNER_TEMP/merge-evidence-token" \
             --bundle-out ./merge-evidence-bundle.json
+
+      - name: Remove token file
+        if: always()
+        run: rm -f "$RUNNER_TEMP/merge-evidence-token"
 
       - name: Upload evidence bundle
         if: always()

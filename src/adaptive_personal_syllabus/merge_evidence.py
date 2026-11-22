@@ -42,7 +42,6 @@ from __future__ import annotations
 import argparse
 import base64
 import json
-import os
 import re
 import urllib.error
 import urllib.request
@@ -439,6 +438,20 @@ def live_state(repo: str, bundle: dict[str, Any], token: str) -> dict[str, Any]:
     }
 
 
+def _resolve_token(token: str, token_file: str) -> str:
+    """The API token: --token wins, else the contents of --token-file.
+
+    The token is never read from the environment: the repo's public-surface
+    contract (ADR 005, #42) forbids `os.environ` in src modules. The
+    workflow writes the token to a temp file and passes --token-file.
+    """
+    if token:
+        return token
+    if token_file:
+        return Path(token_file).read_text(encoding="utf-8").strip()
+    return ""
+
+
 def main(argv: list[str] | None = None) -> int:
     """CLI: evaluate a head's merge evidence.
 
@@ -448,8 +461,8 @@ def main(argv: list[str] | None = None) -> int:
     with --repo it also fetches the live base state, so a stored bundle
     recorded at an older head or base is rejected as invalidated-base.
     Prints the verdict as JSON. Exit 0 on allow, 1 on reject, 2 on
-    usage or fetch errors. The token comes from GITHUB_TOKEN (or
-    --token); it is never printed.
+    usage or fetch errors. The token comes from --token or --token-file;
+    it is never printed.
     """
     parser = argparse.ArgumentParser(
         description="Evaluate whether the merge evidence permits a merge."
@@ -457,11 +470,12 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--repo", default="")
     parser.add_argument("--head", required=True)
     parser.add_argument("--token", default="")
+    parser.add_argument("--token-file", default="")
     parser.add_argument("--bundle", default="")
     parser.add_argument("--bundle-out", default="")
     args = parser.parse_args(argv)
 
-    token = args.token or os.environ.get("GITHUB_TOKEN", "")
+    token = _resolve_token(args.token, args.token_file)
     try:
         if args.bundle:
             bundle = json.loads(Path(args.bundle).read_text(encoding="utf-8"))
@@ -470,7 +484,7 @@ def main(argv: list[str] | None = None) -> int:
                 if not token:
                     raise ValueError(
                         "--bundle with --repo needs a token "
-                        "(GITHUB_TOKEN or --token)"
+                        "(--token or --token-file)"
                     )
                 live = live_state(args.repo, bundle, token)
             result = evaluate(args.head, bundle, live=live)
@@ -479,7 +493,7 @@ def main(argv: list[str] | None = None) -> int:
                 raise ValueError("live mode needs --repo")
             if not token:
                 raise ValueError(
-                    "live mode needs a token (GITHUB_TOKEN or --token)"
+                    "live mode needs a token (--token or --token-file)"
                 )
             bundle = fetch_evidence(args.repo, args.head, token)
             if args.bundle_out:

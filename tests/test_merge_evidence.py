@@ -21,6 +21,7 @@ from pathlib import Path
 from adaptive_personal_syllabus.merge_evidence import (
     DESIGNATED_REVIEWERS,
     REQUIRED_CHECKS,
+    _resolve_token,
     evaluate,
     parse_receipts,
 )
@@ -311,6 +312,39 @@ def test_contract_doc_names_required_checks_and_reasons() -> None:
         assert name in doc, f"contract doc does not name required check: {name}"
     for reason in REASONS:
         assert reason in doc, f"contract doc does not name reason: {reason}"
+
+
+def test_resolve_token_prefers_explicit_token(tmp_path: Path) -> None:
+    """--token wins over --token-file; a token file is read stripped; with
+    neither, the token is empty (the CLI then reports that it needs one).
+    The token is never read from the environment: the public-surface
+    contract forbids `os.environ` in src modules."""
+    token_file = tmp_path / "token"
+    token_file.write_text("  file-token\n", encoding="utf-8")
+    assert _resolve_token("explicit", str(token_file)) == "explicit"
+    assert _resolve_token("", str(token_file)) == "file-token"
+    assert _resolve_token("", "") == ""
+
+
+def test_cli_bundle_mode_with_token_file(tmp_path: Path) -> None:
+    """The CLI accepts --token-file end to end: with a token file present
+    it evaluates the stored bundle instead of erroring on a missing token."""
+    module = "adaptive_personal_syllabus.merge_evidence"
+    token_file = tmp_path / "token"
+    token_file.write_text("dummy-token\n", encoding="utf-8")
+    bundle_path = tmp_path / "allow.json"
+    bundle_path.write_text(json.dumps(_bundle(reviews=[_approval()])), encoding="utf-8")
+    proc = subprocess.run(
+        [sys.executable, "-m", module, "--bundle", str(bundle_path), "--head", HEAD,
+         "--token-file", str(token_file)],
+        capture_output=True,
+        text=True,
+        cwd=REPO_ROOT,
+        env={"PYTHONPATH": "src", "PATH": "/usr/bin:/bin"},
+        check=False,
+    )
+    assert proc.returncode == 0, proc.stderr
+    assert json.loads(proc.stdout)["verdict"] == "allow"
 
 
 def test_cli_bundle_mode_allow_and_reject(tmp_path: Path) -> None:
