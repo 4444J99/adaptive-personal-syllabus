@@ -99,7 +99,7 @@ moderation:
 
 knowledge_graph:
   enabled: true
-  db_path: "/Users/4jp/.metasystem/metastore.db"
+  db_path: "~/.metasystem/metastore.db"
   auto_index: true
   integration:
     query_before_work: true

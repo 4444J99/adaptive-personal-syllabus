@@ -21,6 +21,11 @@ No develop, master or lane/* branch is established from the current evidence. Re
 | capture/main-heal-2026-07-02T13-14-42Z | Parked preservation source; recover every unique hunk before any retirement | Extract justified residue through a bounded PR to main; no wholesale merge |
 | wip/preserve-2026-05-31-adaptive-personal-syllabus | Parked preservation source; same custody rule | Extract justified residue through the same recovery intention |
 
+The privacy-classification inventory (`docs/privacy-classification.yaml`,
+decisions in `docs/adr/003-privacy-classification.md`) classifies the two
+preservation refs above as `review`: each unique hunk is classified before
+any extraction; nothing is extracted unclassified.
+
 ## New work
 
 Use `feat|fix|chore|docs|test/<short-intent>` or `work/<program>/<short-intent>` from the verified target base. A work/* program segment names queue ownership and does not imply a standing lane exists.

@@ -1,0 +1,26 @@
+name: Privacy Classification Guard
+
+on:
+  push:
+    branches: [main, master, develop]
+  pull_request:
+    branches: [main, master, develop]
+  workflow_dispatch:
+
+jobs:
+  classification:
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v7
+
+      - name: Set up Python 3.12
+        uses: actions/setup-python@v7
+        with:
+          python-version: "3.12"
+
+      - name: Install test dependencies
+        run: pip install pytest pyyaml
+
+      - name: Run classification contract
+        run: pytest tests/test_privacy_classification.py -v

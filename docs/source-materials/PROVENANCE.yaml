@@ -5,7 +5,7 @@ generated: '2026-02-13T03:33:58.759117+00:00'
 total_materials: 39
 materials:
 - filename: Context-capture-and-analysis.md
-  source_path: /Users/4jp/Workspace/adaptive-personal-syllabus/Context-capture-and-analysis.md
+  source_path: Context-capture-and-analysis.md
   sha256: c9396e62d5ee73e624db47a90c4ee3b1f9e208d8b2ab65d26ddc91455b7e54dc
   size_bytes: 11079
   last_modified: '2026-02-01T11:04:32.792780+00:00'
@@ -13,7 +13,7 @@ materials:
   confidence: 1.0
   target_subdir: docs/source-materials/theory/
 - filename: OnUpAway-Syllabus.md.md
-  source_path: /Users/4jp/Workspace/adaptive-personal-syllabus/OnUpAway-Syllabus.md.md
+  source_path: OnUpAway-Syllabus.md.md
   sha256: 6b4ff50c331c14c523ccce44b32ba53c130045de7479c88bd3035c7eb7ad949a
   size_bytes: 10529
   last_modified: '2025-08-20T01:06:42+00:00'
@@ -21,7 +21,7 @@ materials:
   confidence: 1.0
   target_subdir: docs/source-materials/theory/
 - filename: I’ve taken all of this into account and structured it into a logical….md
-  source_path: /Users/4jp/Workspace/adaptive-personal-syllabus/narrative-workbook/I’ve
+  source_path: narrative-workbook/I’ve
     taken all of this into account and structured it into a logical….md
   sha256: 1f6730e35a9e65b280d058d7914b61254f357e09976801c1f7803541570dcbc2
   size_bytes: 7224
@@ -30,7 +30,7 @@ materials:
   confidence: 1.0
   target_subdir: docs/source-materials/theory/
 - filename: Writing Guide for Derek Structure, Exploration, and Momentum.md
-  source_path: /Users/4jp/Workspace/adaptive-personal-syllabus/narrative-workbook/Writing
+  source_path: narrative-workbook/Writing
     Guide for Derek Structure, Exploration, and Momentum.md
   sha256: 23d3f0f89fc52ccb0ce8bea9031d01926a845b6a20c04617c0e7e66f5ab7d8f5
   size_bytes: 7055
@@ -39,7 +39,7 @@ materials:
   confidence: 1.0
   target_subdir: docs/source-materials/theory/
 - filename: Aligning McKee’s Story with McCloud’s Understanding Comics.md
-  source_path: /Users/4jp/Workspace/adaptive-personal-syllabus/narrative-workbook/Aligning
+  source_path: narrative-workbook/Aligning
     McKee’s Story with McCloud’s Understanding Comics.md
   sha256: 3c02e68e6f8b384bc0cf74b7bb8d420e3ed6b118c5060ed32a896bcb0b0538bc
   size_bytes: 10174
@@ -48,7 +48,7 @@ materials:
   confidence: 1.0
   target_subdir: docs/source-materials/theory/
 - filename: Essential Storytelling Principles for Derek.md
-  source_path: /Users/4jp/Workspace/adaptive-personal-syllabus/narrative-workbook/Essential
+  source_path: narrative-workbook/Essential
     Storytelling Principles for Derek.md
   sha256: 794a9c38f830ae5dd1c14aaf513c1d09536630a7cdf57fcef5bf77613c0bf7ad
   size_bytes: 4428
@@ -57,7 +57,7 @@ materials:
   confidence: 1.0
   target_subdir: docs/source-materials/theory/
 - filename: Analyzing the Common Threads in Whiplash, Real, and Vagabond.md
-  source_path: /Users/4jp/Workspace/adaptive-personal-syllabus/narrative-workbook/Analyzing
+  source_path: narrative-workbook/Analyzing
     the Common Threads in Whiplash, Real, and Vagabond.md
   sha256: 81fb983f4e12e739646a110de0f6a308111bd606e95b5e27795c5d229d25651d
   size_bytes: 14682
@@ -66,7 +66,7 @@ materials:
   confidence: 1.0
   target_subdir: docs/source-materials/theory/
 - filename: The Graphic Novel Writing Guide for Derek Inspiration, Structure….md
-  source_path: /Users/4jp/Workspace/adaptive-personal-syllabus/narrative-workbook/The
+  source_path: narrative-workbook/The
     Graphic Novel Writing Guide for Derek Inspiration, Structure….md
   sha256: c9b69984f855a3915b4eed3ddbb46834ee4e9d69e885ed8d14e51c8ee4b4b178
   size_bytes: 22866
@@ -75,7 +75,7 @@ materials:
   confidence: 1.0
   target_subdir: docs/source-materials/theory/
 - filename: Got it. Here’s a full breakdown of writing structures, along with….md
-  source_path: /Users/4jp/Workspace/adaptive-personal-syllabus/narrative-workbook/Got
+  source_path: narrative-workbook/Got
     it. Here’s a full breakdown of writing structures, along with….md
   sha256: 39516efc3c3b83adfff876283715b143d6286e77e68731115ad28a46d6fe2c89
   size_bytes: 5920
@@ -84,7 +84,7 @@ materials:
   confidence: 1.0
   target_subdir: docs/source-materials/theory/
 - filename: 📜 FINALIZED RULES FOR THE NAMING STRUCTURE & UNIVERSAL SYSTEM.md
-  source_path: /Users/4jp/Workspace/adaptive-personal-syllabus/narrative-workbook/📜
+  source_path: narrative-workbook/📜
     FINALIZED RULES FOR THE NAMING STRUCTURE & UNIVERSAL SYSTEM.md
   sha256: 52a92a1e8857d90fca5cb5e6444c75ded26a57a37560a7b04ef4f1afc074abc0
   size_bytes: 5363
@@ -93,7 +93,7 @@ materials:
   confidence: 1.0
   target_subdir: docs/source-materials/theory/
 - filename: Here are some structured writing exercises and activities that will….md
-  source_path: /Users/4jp/Workspace/adaptive-personal-syllabus/narrative-workbook/Here
+  source_path: narrative-workbook/Here
     are some structured writing exercises and activities that will….md
   sha256: 4f21fee952e081cef69ee3a681e455472303decf85d9063b6dc9c894e90c3b5f
   size_bytes: 4343
@@ -102,7 +102,7 @@ materials:
   confidence: 1.0
   target_subdir: docs/source-materials/theory/
 - filename: A_ _ .. [ [ execution over concept[.md
-  source_path: /Users/4jp/Workspace/adaptive-personal-syllabus/narrative-workbook/A_
+  source_path: narrative-workbook/A_
     _ .. [ [ execution over concept[.md
   sha256: 38edd3db807954bb5a16d4bd6085e7ee61eb4dbfd8c1b63a05559662e9127a54
   size_bytes: 486
@@ -111,7 +111,7 @@ materials:
   confidence: 1.0
   target_subdir: docs/source-materials/theory/
 - filename: 4-grokrebuddle-claude.md
-  source_path: /Users/4jp/Workspace/adaptive-personal-syllabus/aiChatsThread/4-grokrebuddle-claude.md
+  source_path: aiChatsThread/4-grokrebuddle-claude.md
   sha256: c6c8de89556413ee0f31fbc717d7cc62f66c9eafb56522c9848fbb9a851e4071
   size_bytes: 4356
   last_modified: '2025-08-20T12:27:44+00:00'
@@ -119,7 +119,7 @@ materials:
   confidence: 1.0
   target_subdir: docs/source-materials/theory/
 - filename: 7-bowout-claude.md
-  source_path: /Users/4jp/Workspace/adaptive-personal-syllabus/aiChatsThread/7-bowout-claude.md
+  source_path: aiChatsThread/7-bowout-claude.md
   sha256: 33b8c566700f53876e20981c2cfcdd8d95f1b5c4c7c450a24e32c3dcbf42157c
   size_bytes: 12311
   last_modified: '2025-08-20T12:32:45+00:00'
@@ -127,7 +127,7 @@ materials:
   confidence: 1.0
   target_subdir: docs/source-materials/theory/
 - filename: 16.md
-  source_path: /Users/4jp/Workspace/adaptive-personal-syllabus/aiChatsThread/16.md
+  source_path: aiChatsThread/16.md
   sha256: 0c13dfbdb2963fa352b2d50758cdd7e118c89f0c705c4b9d513a4c57434143bb
   size_bytes: 107686
   last_modified: '2025-08-20T20:58:22+00:00'
@@ -135,7 +135,7 @@ materials:
   confidence: 1.0
   target_subdir: docs/source-materials/theory/
 - filename: 13-grokFart.md
-  source_path: /Users/4jp/Workspace/adaptive-personal-syllabus/aiChatsThread/13-grokFart.md
+  source_path: aiChatsThread/13-grokFart.md
   sha256: 238b5051035b702cdb0828da12d1c413c496fef5b84bd898708b20a8751b713d
   size_bytes: 57208
   last_modified: '2025-08-20T23:19:54+00:00'
@@ -143,7 +143,7 @@ materials:
   confidence: 1.0
   target_subdir: docs/source-materials/theory/
 - filename: 15-expansiveINQUIRY.md
-  source_path: /Users/4jp/Workspace/adaptive-personal-syllabus/aiChatsThread/15-expansiveINQUIRY.md
+  source_path: aiChatsThread/15-expansiveINQUIRY.md
   sha256: 040ee8feb9bdc92b2eb476b6242afa6b07afaad067bc1354c62e9926ba8d7f5a
   size_bytes: 38231
   last_modified: '2025-08-20T19:24:28+00:00'
@@ -151,7 +151,7 @@ materials:
   confidence: 1.0
   target_subdir: docs/source-materials/theory/
 - filename: 0-syllabus-foraireview.md
-  source_path: /Users/4jp/Workspace/adaptive-personal-syllabus/aiChatsThread/0-syllabus-foraireview.md
+  source_path: aiChatsThread/0-syllabus-foraireview.md
   sha256: 6b4ff50c331c14c523ccce44b32ba53c130045de7479c88bd3035c7eb7ad949a
   size_bytes: 10529
   last_modified: '2025-08-20T07:12:03+00:00'
@@ -159,7 +159,7 @@ materials:
   confidence: 1.0
   target_subdir: docs/source-materials/theory/
 - filename: 8-grokRespondsAndResponds.md
-  source_path: /Users/4jp/Workspace/adaptive-personal-syllabus/aiChatsThread/8-grokRespondsAndResponds.md
+  source_path: aiChatsThread/8-grokRespondsAndResponds.md
   sha256: 281fc1717ec431151ca3b8021db6de086aa210ec2d29c8a002d5153941a1f6a2
   size_bytes: 113855
   last_modified: '2025-08-20T17:21:40+00:00'
@@ -167,7 +167,7 @@ materials:
   confidence: 1.0
   target_subdir: docs/source-materials/theory/
 - filename: 10-GROKsUpdatedReadingList.md
-  source_path: /Users/4jp/Workspace/adaptive-personal-syllabus/aiChatsThread/10-GROKsUpdatedReadingList.md
+  source_path: aiChatsThread/10-GROKsUpdatedReadingList.md
   sha256: b94e064d21c6034430f2d6035736de941cd733e7508cbe0a2c220369de46f625
   size_bytes: 34702
   last_modified: '2025-08-20T12:44:07+00:00'
@@ -175,7 +175,7 @@ materials:
   confidence: 1.0
   target_subdir: docs/source-materials/theory/
 - filename: 01a-structuresuggestion-grok.md
-  source_path: /Users/4jp/Workspace/adaptive-personal-syllabus/aiChatsThread/01a-structuresuggestion-grok.md
+  source_path: aiChatsThread/01a-structuresuggestion-grok.md
   sha256: 12f522ac3a601e9f61b16f0f27f689680cae6fe2f94de6beb8e712d0285e9aa7
   size_bytes: 20427
   last_modified: '2025-08-20T07:00:04+00:00'
@@ -183,7 +183,7 @@ materials:
   confidence: 1.0
   target_subdir: docs/source-materials/theory/
 - filename: 6-easeuser-grok.md
-  source_path: /Users/4jp/Workspace/adaptive-personal-syllabus/aiChatsThread/6-easeuser-grok.md
+  source_path: aiChatsThread/6-easeuser-grok.md
   sha256: 057808a59c4c31218972040bef564725dd197dd7364e310767a8e105ae41f48b
   size_bytes: 19993
   last_modified: '2025-08-20T12:27:57+00:00'
@@ -191,7 +191,7 @@ materials:
   confidence: 1.0
   target_subdir: docs/source-materials/theory/
 - filename: _gemini_visit_20260102.json
-  source_path: /Users/4jp/Workspace/adaptive-personal-syllabus/aiChatsThread/_gemini_visit_20260102.json
+  source_path: aiChatsThread/_gemini_visit_20260102.json
   sha256: d38f888d17fb4df656cf00be9565d8015ff80d79c10aba0725a1485e2e47ea11
   size_bytes: 412
   last_modified: '2026-01-03T05:35:35.523669+00:00'
@@ -199,7 +199,7 @@ materials:
   confidence: 1.0
   target_subdir: docs/source-materials/specs/
 - filename: thread-compilation-report.md
-  source_path: /Users/4jp/Workspace/adaptive-personal-syllabus/aiChatsThread/thread-compilation-report.md
+  source_path: aiChatsThread/thread-compilation-report.md
   sha256: 045f5189b981fe10beef81940d30adb2a02921d05bee8c793f4a6ba0d40c4dd8
   size_bytes: 12511
   last_modified: '2025-08-20T12:49:11+00:00'
@@ -207,7 +207,7 @@ materials:
   confidence: 1.0
   target_subdir: docs/source-materials/theory/
 - filename: 12-deeperinsights-postrest-grok.md
-  source_path: /Users/4jp/Workspace/adaptive-personal-syllabus/aiChatsThread/12-deeperinsights-postrest-grok.md
+  source_path: aiChatsThread/12-deeperinsights-postrest-grok.md
   sha256: 856a43c54441f7129afd4a7ecb2dc341c275edad0c8b74252beef679044e2352
   size_bytes: 70503
   last_modified: '2025-08-20T17:22:40+00:00'
@@ -215,7 +215,7 @@ materials:
   confidence: 1.0
   target_subdir: docs/source-materials/theory/
 - filename: 2-onupaway-os-syllabuscritique-claude.md
-  source_path: /Users/4jp/Workspace/adaptive-personal-syllabus/aiChatsThread/2-onupaway-os-syllabuscritique-claude.md
+  source_path: aiChatsThread/2-onupaway-os-syllabuscritique-claude.md
   sha256: 312cdde90c94235a7060c2630f32a41d025dd8da910d0f09e4b09eb8ab73d730
   size_bytes: 53908
   last_modified: '2025-08-20T06:42:27+00:00'
@@ -223,7 +223,7 @@ materials:
   confidence: 1.0
   target_subdir: docs/source-materials/theory/
 - filename: 9-userChecksGROK.md
-  source_path: /Users/4jp/Workspace/adaptive-personal-syllabus/aiChatsThread/9-userChecksGROK.md
+  source_path: aiChatsThread/9-userChecksGROK.md
   sha256: 137c414d89772c553552b52089136dd25c259ffdcf47c217e9833c11f63039af
   size_bytes: 17483
   last_modified: '2025-08-20T12:44:15+00:00'
@@ -231,7 +231,7 @@ materials:
   confidence: 1.0
   target_subdir: docs/source-materials/theory/
 - filename: 5-grokcontinues.md
-  source_path: /Users/4jp/Workspace/adaptive-personal-syllabus/aiChatsThread/5-grokcontinues.md
+  source_path: aiChatsThread/5-grokcontinues.md
   sha256: 6510b44dcd8f4cdbbe69d08e1af81affb37f3b8dccda433824b10bc0d32f26d3
   size_bytes: 39809
   last_modified: '2025-08-20T12:26:13+00:00'
@@ -239,7 +239,7 @@ materials:
   confidence: 1.0
   target_subdir: docs/source-materials/theory/
 - filename: 01-onupaway-os-syllabuscritique-grok.md
-  source_path: /Users/4jp/Workspace/adaptive-personal-syllabus/aiChatsThread/01-onupaway-os-syllabuscritique-grok.md
+  source_path: aiChatsThread/01-onupaway-os-syllabuscritique-grok.md
   sha256: 8920fcc1280026be0e21fc7b777fc09dc962e8d84a4190cec63944401f067c0a
   size_bytes: 49920
   last_modified: '2025-08-20T07:11:33+00:00'
@@ -247,7 +247,7 @@ materials:
   confidence: 1.0
   target_subdir: docs/source-materials/theory/
 - filename: 11-recontextualize-gpt.md
-  source_path: /Users/4jp/Workspace/adaptive-personal-syllabus/aiChatsThread/11-recontextualize-gpt.md
+  source_path: aiChatsThread/11-recontextualize-gpt.md
   sha256: 5a6876a7244ecfe152363fcbe2ca8eb2a40f2924f917c0d789919a97177066e0
   size_bytes: 69692
   last_modified: '2025-08-20T12:46:58+00:00'
@@ -255,7 +255,7 @@ materials:
   confidence: 1.0
   target_subdir: docs/source-materials/theory/
 - filename: 3-clauderebuddle-grok.md
-  source_path: /Users/4jp/Workspace/adaptive-personal-syllabus/aiChatsThread/3-clauderebuddle-grok.md
+  source_path: aiChatsThread/3-clauderebuddle-grok.md
   sha256: 3f9924af0f7b9b401f560e7714283ebac1f4bec115c1eb5d3d5a1b91bb0ac023
   size_bytes: 16049
   last_modified: '2025-08-20T07:06:31+00:00'
@@ -263,7 +263,7 @@ materials:
   confidence: 1.0
   target_subdir: docs/source-materials/theory/
 - filename: OnUpAway-Syllabus.md
-  source_path: /Users/4jp/Workspace/adaptive-personal-syllabus/syllabusEVOLUTION/OnUpAway-Syllabus.md
+  source_path: syllabusEVOLUTION/OnUpAway-Syllabus.md
   sha256: 6b4ff50c331c14c523ccce44b32ba53c130045de7479c88bd3035c7eb7ad949a
   size_bytes: 10529
   last_modified: '2025-08-20T06:51:23+00:00'
@@ -271,7 +271,7 @@ materials:
   confidence: 1.0
   target_subdir: docs/source-materials/theory/
 - filename: onupaway-syllabus-2.md
-  source_path: /Users/4jp/Workspace/adaptive-personal-syllabus/syllabusEVOLUTION/onupaway-syllabus-2.md
+  source_path: syllabusEVOLUTION/onupaway-syllabus-2.md
   sha256: 6b4ff50c331c14c523ccce44b32ba53c130045de7479c88bd3035c7eb7ad949a
   size_bytes: 10529
   last_modified: '2025-08-20T12:17:02+00:00'
@@ -279,7 +279,7 @@ materials:
   confidence: 1.0
   target_subdir: docs/source-materials/theory/
 - filename: regeos-draftcurriculum-v2.md
-  source_path: /Users/4jp/Workspace/adaptive-personal-syllabus/syllabusEVOLUTION/regeos-draftcurriculum-v2.md
+  source_path: syllabusEVOLUTION/regeos-draftcurriculum-v2.md
   sha256: fb305964687c7a63b5fb082207e3aca3b22c516d92df8cba1dfa9c785259f1ea
   size_bytes: 4552
   last_modified: '2025-08-20T13:26:05+00:00'
@@ -287,7 +287,7 @@ materials:
   confidence: 1.0
   target_subdir: docs/source-materials/theory/
 - filename: init-protocall.md
-  source_path: /Users/4jp/Workspace/adaptive-personal-syllabus/syllabusEVOLUTION/init-protocall.md
+  source_path: syllabusEVOLUTION/init-protocall.md
   sha256: c80f7bd4418e6709937e8a6b47803567cb3e928624d953140e622daee8589ee7
   size_bytes: 3778
   last_modified: '2025-08-20T13:20:17+00:00'
@@ -295,7 +295,7 @@ materials:
   confidence: 1.0
   target_subdir: docs/source-materials/theory/
 - filename: os-syllabus-v3.md
-  source_path: /Users/4jp/Workspace/adaptive-personal-syllabus/syllabusEVOLUTION/os-syllabus-v3.md
+  source_path: syllabusEVOLUTION/os-syllabus-v3.md
   sha256: 52b29e4f8103efddb5d69763022b5d1126daa782a1a722164b094f633ea5f071
   size_bytes: 42547
   last_modified: '2025-08-20T06:51:23+00:00'
@@ -303,7 +303,7 @@ materials:
   confidence: 1.0
   target_subdir: docs/source-materials/theory/
 - filename: os-syllabus-v3-2.md
-  source_path: /Users/4jp/Workspace/adaptive-personal-syllabus/syllabusEVOLUTION/os-syllabus-v3-2.md
+  source_path: syllabusEVOLUTION/os-syllabus-v3-2.md
   sha256: 52b29e4f8103efddb5d69763022b5d1126daa782a1a722164b094f633ea5f071
   size_bytes: 42547
   last_modified: '2025-08-27T20:34:57+00:00'
@@ -311,7 +311,7 @@ materials:
   confidence: 1.0
   target_subdir: docs/source-materials/theory/
 - filename: os-syllabus-v3-3.md
-  source_path: /Users/4jp/Workspace/adaptive-personal-syllabus/syllabusEVOLUTION/os-syllabus-v3-3.md
+  source_path: syllabusEVOLUTION/os-syllabus-v3-3.md
   sha256: 52b29e4f8103efddb5d69763022b5d1126daa782a1a722164b094f633ea5f071
   size_bytes: 42547
   last_modified: '2025-08-20T06:51:23+00:00'
@@ -319,7 +319,7 @@ materials:
   confidence: 1.0
   target_subdir: docs/source-materials/theory/
 - filename: _gemini_visit_20260102.json
-  source_path: /Users/4jp/Workspace/adaptive-personal-syllabus/syllabusEVOLUTION/_gemini_visit_20260102.json
+  source_path: syllabusEVOLUTION/_gemini_visit_20260102.json
   sha256: 7e473bfa52c4175a9486e132b73160195f0e3223e3ad004f824703656ed6843e
   size_bytes: 412
   last_modified: '2026-01-03T05:35:35.519397+00:00'

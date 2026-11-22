@@ -1,4 +1,0 @@
-[console_scripts]
-aps = adaptive_personal_syllabus.core:cli
-aps-data-export = adaptive_personal_syllabus.data_export:main
-syllabus = adaptive_personal_syllabus.core:cli
