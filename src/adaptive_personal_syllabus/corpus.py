@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import csv
+import fnmatch
 import hashlib
 import json
 import mimetypes
@@ -84,13 +85,86 @@ def _should_skip(path: Path, root: Path) -> bool:
     return any(part in SKIP_DIRECTORIES for part in rel_parts)
 
 
+# Classification-aware admission (#34, MTR-007 step 2). The #33 inventory
+# (docs/privacy-classification.yaml, ADR 003) classifies paths; a root that
+# carries one refuses `private-never-in-git` paths at discovery. A repo root
+# carries it at docs/privacy-classification.yaml; a docs root (the audit
+# gate's `--root ./docs`) carries it at privacy-classification.yaml.
+PRIVACY_INVENTORY_RELPATHS = (
+    "docs/privacy-classification.yaml",
+    "privacy-classification.yaml",
+)
+PRIVATE_CLASS = "private-never-in-git"
+
+
+def _inventory_match(pattern: str, path: str) -> bool:
+    """Match one inventory pattern against a root-relative path.
+
+    `*` matches within one path segment; `**` matches zero or more segments.
+    Same semantics as tests/test_privacy_classification.py::inventory_match;
+    the classification guard pins the inventory, this pins admission.
+    """
+
+    def match_parts(pattern_parts: list[str], parts: list[str]) -> bool:
+        if not pattern_parts:
+            return not parts
+        head, rest = pattern_parts[0], pattern_parts[1:]
+        if head == "**":
+            return any(match_parts(rest, parts[i:]) for i in range(len(parts) + 1))
+        if not parts:
+            return False
+        return fnmatch.fnmatchcase(parts[0], head) and match_parts(rest, parts[1:])
+
+    return match_parts(pattern.split("/"), path.split("/"))
+
+
+def _load_privacy_inventory(root: Path) -> dict | None:
+    """Load the classification inventory for this tree, if one is present.
+
+    The inventory is read through the admitted-bytes path so a symlinked
+    inventory is refused like any other symlink escape. A malformed inventory
+    fails closed: silently admitting private-classified paths would be worse
+    than a loud ingest failure the guard test catches in CI.
+    """
+    for rel in PRIVACY_INVENTORY_RELPATHS:
+        candidate = root / rel
+        if candidate.is_file() and not candidate.is_symlink():
+            data = yaml.safe_load(_read_admitted_bytes(root, candidate).decode("utf-8"))
+            if not isinstance(data, dict) or not isinstance(data.get("entries"), list):
+                raise ValueError("ERR_PRIVACY_INVENTORY: classification inventory is malformed")
+            return data
+    return None
+
+
+def _is_private_classified(inventory: dict, rel_path: str) -> bool:
+    """True when a `private-never-in-git` inventory entry matches the path.
+
+    Private wins on conflict: the guard test enforces exactly one entry per
+    tracked path, but an untracked file can match a public pattern and a
+    private one (e.g. `docs-audit-ci.md` matches `*.md` and `docs-audit-ci.*`).
+    Refusal is the fail-closed side. `review` stays admitted per ADR 003.
+    """
+    for entry in inventory.get("entries") or []:
+        if not isinstance(entry, dict) or entry.get("class") != PRIVATE_CLASS:
+            continue
+        patterns = entry.get("patterns") or []
+        if any(_inventory_match(str(pattern), rel_path) for pattern in patterns):
+            return True
+    return False
+
+
 def discover_documents(root: Path, exclude_paths: set[Path] | None = None) -> list[Path]:
     """Discover regular files; symlink aliases are not admitted sources."""
     root = root.expanduser().resolve(strict=True)
     excluded = {p.expanduser().resolve() for p in (exclude_paths or set())}
+    inventory = _load_privacy_inventory(root)
 
     def allowed(path: Path) -> bool:
         if path.is_symlink() or _should_skip(path, root):
+            return False
+        if inventory is not None and _is_private_classified(
+            inventory, str(path.relative_to(root))
+        ):
             return False
         resolved = path.resolve()
         return resolved.is_relative_to(root) and not any(
