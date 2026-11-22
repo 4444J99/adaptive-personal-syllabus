@@ -11,7 +11,7 @@ license = {text = "MIT"}
 dependencies = [
     "click>=8.0",
     "PyYAML>=6.0",
-    "koinonia-db @ git+https://github.com/organvm-vi-koinonia/koinonia-db.git@3fe455fcbdeca98ab209f38a6b892dc29217c6a1",
+    "koinonia-db @ git+https://github.com/4444J99/koinonia-db.git@3fe455fcbdeca98ab209f38a6b892dc29217c6a1",
     "sqlalchemy>=2.0",
 ]
 
@@ -29,3 +29,12 @@ line-length = 99
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
+
+[tool.mypy]
+# koinonia-db ships no py.typed marker, so its imports are untyped upstream
+# (#42, MTR-008: bare `mypy src` must pass on a clean checkout; CI previously
+# masked this with --ignore-missing-imports for the whole tree). Everything
+# else stays strictly checked.
+[[tool.mypy.overrides]]
+module = "koinonia_db.*"
+ignore_missing_imports = true

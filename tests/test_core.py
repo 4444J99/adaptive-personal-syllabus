@@ -1,4 +1,7 @@
 """Tests for adaptive-personal-syllabus."""
+
+from pathlib import Path
+
 from adaptive_personal_syllabus.generator import SyllabusGenerator
 from adaptive_personal_syllabus.models import (
     DifficultyLevel,
@@ -6,6 +9,10 @@ from adaptive_personal_syllabus.models import (
     LearningModule,
     LearningPath,
 )
+
+# Synthetic seed fixture (tests/fixtures/seed): the suite must pass on a
+# clean public checkout with no sibling koinonia-db clone (#42, MTR-008).
+FIXTURE_SEED_DIR = Path(__file__).parent / "fixtures" / "seed"
 
 
 def test_learner_profile_defaults():
@@ -86,7 +93,7 @@ def test_learning_path_next_module():
 
 
 def test_generator_creates_path():
-    gen = SyllabusGenerator()
+    gen = SyllabusGenerator(seed_dir=FIXTURE_SEED_DIR)
     profile = LearnerProfile(
         name="Test", organs_of_interest=["I"], level=DifficultyLevel.BEGINNER
     )
@@ -96,7 +103,7 @@ def test_generator_creates_path():
 
 
 def test_generator_multiple_organs():
-    gen = SyllabusGenerator()
+    gen = SyllabusGenerator(seed_dir=FIXTURE_SEED_DIR)
     profile = LearnerProfile(
         name="Test", organs_of_interest=["I", "V"], level=DifficultyLevel.INTERMEDIATE
     )
@@ -106,7 +113,7 @@ def test_generator_multiple_organs():
 
 
 def test_generator_filters_completed():
-    gen = SyllabusGenerator()
+    gen = SyllabusGenerator(seed_dir=FIXTURE_SEED_DIR)
     profile1 = LearnerProfile(
         name="Test", organs_of_interest=["I"], level=DifficultyLevel.BEGINNER
     )
