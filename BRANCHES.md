@@ -30,7 +30,7 @@ Verified at main `524f57ab` (2026-11-22): every remote branch is accounted for i
 | #35 (MTR-009) | work/mentor/issue-ownership | `524f57ab` | main | In progress (this PR). First adoption: `work/mentor/branch-constitution` via PR #70 (`7010ef1`), merged |
 | #36 (MTR-010) | work/mentor/agent-claims | `8dc861bc` | main | In progress (this PR); gated on #35 landing, satisfied by PR #85 (`8dc861bc`) |
 | #37 (MTR-011) | work/mentor/merge-evidence | `38d87112` | main | In progress (this PR); gates on #35/#36 satisfied by PR #85 (`8dc861bc`) and PR #86 (`38d87112`) |
-| #38 (MTR-039) | work/mentor/audit-truth-contract | `0235b95` | main | Merged via PR #72 (`2ac1bbc`); branch head patch-equivalent on main (`git cherry` `-`) |
+| #38 (MTR-039) | work/mentor/audit-evidence-status | `6b2b4b90` | main | In progress (this PR); supersedes work/mentor/audit-truth-contract (PR #72's merged branch, `0235b95c`, still exists — reuse would carry #72's history); #31 gate satisfied (PR #80); #37 merged (PR #87) |
 | #39 (closed) | learning/plan-integrity-v2-2026-09-08 | `888402e` | main | Merged via PR #20 (`019dfc7`); branch diff identical to the squash (20 files, 2323+/555-) |
 | #40 (MTR-004) | capture/main-heal-2026-07-02T13-14-42Z; wip/preserve-2026-05-31-adaptive-personal-syllabus | — | main (bounded extraction PRs only) | Preservation: recover unique hunks only, no wholesale merge, no deletion. Capture unique content is 19 `.pyc` files + a README diff; wip unique content is `AGENTS.md` / `CLAUDE.md` / `GEMINI.md` diffs |
 | #41 (MTR-005) | no branch yet — unclaimed | — | main | Unclaimed |

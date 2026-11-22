@@ -1,0 +1,974 @@
+{
+  "schema_version": "1.0",
+  "artifact_kind": "generated-docs-audit-reconciliation",
+  "generated_at": "2026-11-22T15:43:51+00:00",
+  "audited_head": "6b2b4b9005004d9300f61392e38405741a1642a0",
+  "issue": "4444J99/adaptive-personal-syllabus#38",
+  "base_report": {
+    "path": "docs/implementation/docs-audit-report.json",
+    "schema_version": "1.0",
+    "generated_at": "2026-02-18T14:43:12+00:00",
+    "suggestions": 386,
+    "implemented_count": 58,
+    "planned_count": 328
+  },
+  "fresh_report": {
+    "schema_version": "2.0",
+    "generated_at": "2026-11-22T15:43:51+00:00",
+    "suggestions": 388,
+    "implemented_count": 0,
+    "planned_count": 388
+  },
+  "count_question": {
+    "issue_body_claim": "historic 386 suggestions include 58 unverified implemented labels; fresh 390 includes 4 generated-output echoes",
+    "observed_fresh_count": 388,
+    "answer": "Does not reproduce at this head. The current generator yields 388 items: all 386 original IDs preserved, plus 2 genuine new discoveries (feat-5cb41775ba5d from adr/003-privacy-classification.md:28, feat-ba6b3de3ae0f from mentor-roadmap-state.md:13). No generated-output echo appears in the fresh output: generated reports, roadmaps and execution plans are excluded from extraction by marker and path, so the 4 echoes the issue body cites are not present to count."
+  },
+  "evidence_lookup": {
+    "status_yaml": {
+      "path": "docs/implementation/milestones/integration-observability-ci.status.yaml",
+      "introduced_by": "47d1198d (2026-02-18, 'Implement milestone execution pipeline and CI docs-audit gate')",
+      "delivering_pr": null,
+      "note": "Direct commit predating the PR discipline; no pull request binds the 29 IDs to a head with green checks."
+    },
+    "milestone_pr_search": {
+      "query": "integration-observability-ci in pull requests",
+      "result": "Only PR #72, which stopped certifying delivery from keywords and status claims \u2014 the opposite of evidence for these items."
+    },
+    "conclusion": "No verification record can honestly be constructed for any of the 58 items, so all 58 demote with reasons. No *.verified.yaml is created."
+  },
+  "summary": {
+    "previously_implemented": 58,
+    "verified_with_record": 0,
+    "demoted_unverified_claim": 29,
+    "demoted_keyword_only": 29,
+    "new_items": 2,
+    "remaining_implemented": 0
+  },
+  "items": [
+    {
+      "id": "feat-00edc0765630",
+      "text": "Create feature prioritization frameworks for managing scope during integration phases",
+      "previous_status": "implemented",
+      "new_status": "planned",
+      "reason": "unverified-claim",
+      "claim": "unverified-claim",
+      "evidence": null,
+      "source_refs": [
+        {
+          "rel_path": "aiChatsThread/2-onupaway-os-syllabuscritique-claude.md",
+          "line": 690
+        }
+      ]
+    },
+    {
+      "id": "feat-0179c667b65d",
+      "text": "Define boot success metrics",
+      "previous_status": "implemented",
+      "new_status": "planned",
+      "reason": "unverified-claim",
+      "claim": "unverified-claim",
+      "evidence": null,
+      "source_refs": [
+        {
+          "rel_path": "aiChatsThread/01-onupaway-os-syllabuscritique-grok.md",
+          "line": 359
+        }
+      ]
+    },
+    {
+      "id": "feat-084bced806d6",
+      "text": "Expand societal benefits",
+      "previous_status": "implemented",
+      "new_status": "planned",
+      "reason": "unverified-claim",
+      "claim": "unverified-claim",
+      "evidence": null,
+      "source_refs": [
+        {
+          "rel_path": "aiChatsThread/01-onupaway-os-syllabuscritique-grok.md",
+          "line": 136
+        }
+      ]
+    },
+    {
+      "id": "feat-12a204eb34b7",
+      "text": "Provide context-switching guides, create unified asset management strategy, add UI/kernel debugging methodology",
+      "previous_status": "implemented",
+      "new_status": "planned",
+      "reason": "keyword-only",
+      "claim": "keyword-only",
+      "evidence": null,
+      "source_refs": [
+        {
+          "rel_path": "aiChatsThread/2-onupaway-os-syllabuscritique-claude.md",
+          "line": 495
+        }
+      ]
+    },
+    {
+      "id": "feat-15b5060c062e",
+      "text": "Develop character node AI agents in src/character-nodes/ with REST APIs (e.g., /api/forrest/analyze) for real-time feedback, logged in anthologymanager/logs/",
+      "previous_status": "implemented",
+      "new_status": "planned",
+      "reason": "keyword-only",
+      "claim": "keyword-only",
+      "evidence": null,
+      "source_refs": [
+        {
+          "rel_path": "aiChatsThread/8-grokRespondsAndResponds.md",
+          "line": 46
+        },
+        {
+          "rel_path": "aiChatsThread/8-grokRespondsAndResponds.md",
+          "line": 192
+        }
+      ]
+    },
+    {
+      "id": "feat-15d19c085e54",
+      "text": "Define key performance indicators (KPIs) and metrics for each module (e.g., log completeness rates, CI adoption, algorithm performance improvement)",
+      "previous_status": "implemented",
+      "new_status": "planned",
+      "reason": "unverified-claim",
+      "claim": "unverified-claim",
+      "evidence": null,
+      "source_refs": [
+        {
+          "rel_path": "aiChatsThread/thread-compilation-report.md",
+          "line": 55
+        }
+      ]
+    },
+    {
+      "id": "feat-1931b2ac0a24",
+      "text": "Add JSON schema validation to templates",
+      "previous_status": "implemented",
+      "new_status": "planned",
+      "reason": "keyword-only",
+      "claim": "keyword-only",
+      "evidence": null,
+      "source_refs": [
+        {
+          "rel_path": "aiChatsThread/01-onupaway-os-syllabuscritique-grok.md",
+          "line": 35
+        }
+      ]
+    },
+    {
+      "id": "feat-194d6286cce9",
+      "text": "Define pre/post metrics for recursion understanding",
+      "previous_status": "implemented",
+      "new_status": "planned",
+      "reason": "unverified-claim",
+      "claim": "unverified-claim",
+      "evidence": null,
+      "source_refs": [
+        {
+          "rel_path": "aiChatsThread/01-onupaway-os-syllabuscritique-grok.md",
+          "line": 317
+        }
+      ]
+    },
+    {
+      "id": "feat-1f6030b916fa",
+      "text": "Add metrics",
+      "previous_status": "implemented",
+      "new_status": "planned",
+      "reason": "unverified-claim",
+      "claim": "unverified-claim",
+      "evidence": null,
+      "source_refs": [
+        {
+          "rel_path": "aiChatsThread/01-onupaway-os-syllabuscritique-grok.md",
+          "line": 109
+        },
+        {
+          "rel_path": "aiChatsThread/01-onupaway-os-syllabuscritique-grok.md",
+          "line": 217
+        }
+      ]
+    },
+    {
+      "id": "feat-2dbb84aee629",
+      "text": "Define JSON Schema: Create `chainblockark/template-change-record.json` with versioned fields for prompt text, timestamp, user, and metadata. Validate using a JSON Schema validator",
+      "previous_status": "implemented",
+      "new_status": "planned",
+      "reason": "keyword-only",
+      "claim": "keyword-only",
+      "evidence": null,
+      "source_refs": [
+        {
+          "rel_path": "source-materials/theory/os-syllabus-v3.md",
+          "line": 29
+        }
+      ]
+    },
+    {
+      "id": "feat-2f2e93a62079",
+      "text": "Phase milestones",
+      "previous_status": "implemented",
+      "new_status": "planned",
+      "reason": "unverified-claim",
+      "claim": "unverified-claim",
+      "evidence": null,
+      "source_refs": [
+        {
+          "rel_path": "aiChatsThread/01-onupaway-os-syllabuscritique-grok.md",
+          "line": 229
+        }
+      ]
+    },
+    {
+      "id": "feat-3c32f39c49cd",
+      "text": "Add adoption metrics to the one-pager",
+      "previous_status": "implemented",
+      "new_status": "planned",
+      "reason": "unverified-claim",
+      "claim": "unverified-claim",
+      "evidence": null,
+      "source_refs": [
+        {
+          "rel_path": "aiChatsThread/01-onupaway-os-syllabuscritique-grok.md",
+          "line": 55
+        }
+      ]
+    },
+    {
+      "id": "feat-3fe373d691ed",
+      "text": "Add KPIs",
+      "previous_status": "implemented",
+      "new_status": "planned",
+      "reason": "unverified-claim",
+      "claim": "unverified-claim",
+      "evidence": null,
+      "source_refs": [
+        {
+          "rel_path": "aiChatsThread/01-onupaway-os-syllabuscritique-grok.md",
+          "line": 163
+        }
+      ]
+    },
+    {
+      "id": "feat-44683c640468",
+      "text": "Create a Genealogy Engine in anthologymanager/scripts/genealogy.py to map artifact lineages, using JSON schemas (e.g., genealogy-schema.json) for traceability",
+      "previous_status": "implemented",
+      "new_status": "planned",
+      "reason": "keyword-only",
+      "claim": "keyword-only",
+      "evidence": null,
+      "source_refs": [
+        {
+          "rel_path": "aiChatsThread/8-grokRespondsAndResponds.md",
+          "line": 25
+        },
+        {
+          "rel_path": "aiChatsThread/8-grokRespondsAndResponds.md",
+          "line": 171
+        }
+      ]
+    },
+    {
+      "id": "feat-45e838f40590",
+      "text": "Map ledger outputs as inputs for later modules in the wiki",
+      "previous_status": "implemented",
+      "new_status": "planned",
+      "reason": "keyword-only",
+      "claim": "keyword-only",
+      "evidence": null,
+      "source_refs": [
+        {
+          "rel_path": "aiChatsThread/01-onupaway-os-syllabuscritique-grok.md",
+          "line": 18
+        }
+      ]
+    },
+    {
+      "id": "feat-493ffc1cbf4f",
+      "text": "Build ChainBlockARK as actual RE:GE engine, not logging tool",
+      "previous_status": "implemented",
+      "new_status": "planned",
+      "reason": "keyword-only",
+      "claim": "keyword-only",
+      "evidence": null,
+      "source_refs": [
+        {
+          "rel_path": "aiChatsThread/2-onupaway-os-syllabuscritique-claude.md",
+          "line": 886
+        },
+        {
+          "rel_path": "aiChatsThread/2-onupaway-os-syllabuscritique-claude.md",
+          "line": 1011
+        }
+      ]
+    },
+    {
+      "id": "feat-5ba9a6fe7c9c",
+      "text": "Set reliability KPIs",
+      "previous_status": "implemented",
+      "new_status": "planned",
+      "reason": "unverified-claim",
+      "claim": "unverified-claim",
+      "evidence": null,
+      "source_refs": [
+        {
+          "rel_path": "aiChatsThread/01-onupaway-os-syllabuscritique-grok.md",
+          "line": 380
+        }
+      ]
+    },
+    {
+      "id": "feat-5f42112ad978",
+      "text": "Define KPIs",
+      "previous_status": "implemented",
+      "new_status": "planned",
+      "reason": "unverified-claim",
+      "claim": "unverified-claim",
+      "evidence": null,
+      "source_refs": [
+        {
+          "rel_path": "aiChatsThread/01-onupaway-os-syllabuscritique-grok.md",
+          "line": 244
+        }
+      ]
+    },
+    {
+      "id": "feat-647ec3e1c785",
+      "text": "Create a dependency graph showing how ChainBlockARK artifacts support subsequent modules",
+      "previous_status": "implemented",
+      "new_status": "planned",
+      "reason": "keyword-only",
+      "claim": "keyword-only",
+      "evidence": null,
+      "source_refs": [
+        {
+          "rel_path": "aiChatsThread/01-onupaway-os-syllabuscritique-grok.md",
+          "line": 267
+        }
+      ]
+    },
+    {
+      "id": "feat-6549f8b5c838",
+      "text": "Tier 4: wings-community-governance",
+      "previous_status": "implemented",
+      "new_status": "planned",
+      "reason": "keyword-only",
+      "claim": "keyword-only",
+      "evidence": null,
+      "source_refs": [
+        {
+          "rel_path": "implementation/milestones/integration-observability-ci.md",
+          "line": 101
+        }
+      ]
+    },
+    {
+      "id": "feat-668fcfc43696",
+      "text": "profile DSL execution for bottlenecks",
+      "previous_status": "implemented",
+      "new_status": "planned",
+      "reason": "keyword-only",
+      "claim": "keyword-only",
+      "evidence": null,
+      "source_refs": [
+        {
+          "rel_path": "aiChatsThread/01-onupaway-os-syllabuscritique-grok.md",
+          "line": 322
+        }
+      ]
+    },
+    {
+      "id": "feat-66b9d0e15c72",
+      "text": "Integrate cryptographic hashing for ledger entries to enhance security",
+      "previous_status": "implemented",
+      "new_status": "planned",
+      "reason": "keyword-only",
+      "claim": "keyword-only",
+      "evidence": null,
+      "source_refs": [
+        {
+          "rel_path": "aiChatsThread/01-onupaway-os-syllabuscritique-grok.md",
+          "line": 259
+        }
+      ]
+    },
+    {
+      "id": "feat-6a4d8e6215b0",
+      "text": "Define REST/GraphQL endpoints, specify JSON schema with versioning, add performance benchmarks for ledger writes",
+      "previous_status": "implemented",
+      "new_status": "planned",
+      "reason": "keyword-only",
+      "claim": "keyword-only",
+      "evidence": null,
+      "source_refs": [
+        {
+          "rel_path": "aiChatsThread/2-onupaway-os-syllabuscritique-claude.md",
+          "line": 18
+        }
+      ]
+    },
+    {
+      "id": "feat-6b106e5b235b",
+      "text": "Define module interconnection protocols, specify data schemas that evolve across modules, add distributed systems considerations",
+      "previous_status": "implemented",
+      "new_status": "planned",
+      "reason": "unverified-claim",
+      "claim": "unverified-claim",
+      "evidence": null,
+      "source_refs": [
+        {
+          "rel_path": "aiChatsThread/2-onupaway-os-syllabuscritique-claude.md",
+          "line": 44
+        }
+      ]
+    },
+    {
+      "id": "feat-6c85a93222c4",
+      "text": "Add screenshots to the SOP for prompt logging",
+      "previous_status": "implemented",
+      "new_status": "planned",
+      "reason": "keyword-only",
+      "claim": "keyword-only",
+      "evidence": null,
+      "source_refs": [
+        {
+          "rel_path": "aiChatsThread/01-onupaway-os-syllabuscritique-grok.md",
+          "line": 23
+        }
+      ]
+    },
+    {
+      "id": "feat-74740c05b737",
+      "text": "Define KPIs such as log completeness rates in the matrix",
+      "previous_status": "implemented",
+      "new_status": "planned",
+      "reason": "unverified-claim",
+      "claim": "unverified-claim",
+      "evidence": null,
+      "source_refs": [
+        {
+          "rel_path": "aiChatsThread/01-onupaway-os-syllabuscritique-grok.md",
+          "line": 28
+        }
+      ]
+    },
+    {
+      "id": "feat-799f609f3e72",
+      "text": "Implement API Endpoints: Build a REST or GraphQL API for ledger writes and queries. Document endpoints in `docs/chainblockark-api.md` and test performance benchmarks (e.g., 1 000 writes/second)",
+      "previous_status": "implemented",
+      "new_status": "planned",
+      "reason": "keyword-only",
+      "claim": "keyword-only",
+      "evidence": null,
+      "source_refs": [
+        {
+          "rel_path": "source-materials/theory/os-syllabus-v3.md",
+          "line": 30
+        }
+      ]
+    },
+    {
+      "id": "feat-7bb3eeabbb20",
+      "text": "Document everything through social media as mythic storytelling",
+      "previous_status": "implemented",
+      "new_status": "planned",
+      "reason": "unverified-claim",
+      "claim": "unverified-claim",
+      "evidence": null,
+      "source_refs": [
+        {
+          "rel_path": "aiChatsThread/2-onupaway-os-syllabuscritique-claude.md",
+          "line": 980
+        },
+        {
+          "rel_path": "aiChatsThread/2-onupaway-os-syllabuscritique-claude.md",
+          "line": 1105
+        }
+      ]
+    },
+    {
+      "id": "feat-855f100f3900",
+      "text": "Define minimum viable platform criteria, create integration milestone checkpoints, provide feature prioritization framework",
+      "previous_status": "implemented",
+      "new_status": "planned",
+      "reason": "unverified-claim",
+      "claim": "unverified-claim",
+      "evidence": null,
+      "source_refs": [
+        {
+          "rel_path": "aiChatsThread/2-onupaway-os-syllabuscritique-claude.md",
+          "line": 615
+        }
+      ]
+    },
+    {
+      "id": "feat-877c7607ca0b",
+      "text": "Specify metrics like time saved in documentation",
+      "previous_status": "implemented",
+      "new_status": "planned",
+      "reason": "unverified-claim",
+      "claim": "unverified-claim",
+      "evidence": null,
+      "source_refs": [
+        {
+          "rel_path": "aiChatsThread/01-onupaway-os-syllabuscritique-grok.md",
+          "line": 296
+        }
+      ]
+    },
+    {
+      "id": "feat-8ea776813a83",
+      "text": "define JSON schemas for metadata tags",
+      "previous_status": "implemented",
+      "new_status": "planned",
+      "reason": "keyword-only",
+      "claim": "keyword-only",
+      "evidence": null,
+      "source_refs": [
+        {
+          "rel_path": "aiChatsThread/01-onupaway-os-syllabuscritique-grok.md",
+          "line": 280
+        }
+      ]
+    },
+    {
+      "id": "feat-8ff94565c317",
+      "text": "Incorporate outcome metrics into the pitch slide",
+      "previous_status": "implemented",
+      "new_status": "planned",
+      "reason": "unverified-claim",
+      "claim": "unverified-claim",
+      "evidence": null,
+      "source_refs": [
+        {
+          "rel_path": "aiChatsThread/01-onupaway-os-syllabuscritique-grok.md",
+          "line": 28
+        }
+      ]
+    },
+    {
+      "id": "feat-91ea2930eea1",
+      "text": "Define metrics",
+      "previous_status": "implemented",
+      "new_status": "planned",
+      "reason": "unverified-claim",
+      "claim": "unverified-claim",
+      "evidence": null,
+      "source_refs": [
+        {
+          "rel_path": "aiChatsThread/01-onupaway-os-syllabuscritique-grok.md",
+          "line": 136
+        },
+        {
+          "rel_path": "aiChatsThread/01-onupaway-os-syllabuscritique-grok.md",
+          "line": 190
+        }
+      ]
+    },
+    {
+      "id": "feat-976396e01283",
+      "text": "align with grants in simulation sciences",
+      "previous_status": "implemented",
+      "new_status": "planned",
+      "reason": "unverified-claim",
+      "claim": "unverified-claim",
+      "evidence": null,
+      "source_refs": [
+        {
+          "rel_path": "aiChatsThread/01-onupaway-os-syllabuscritique-grok.md",
+          "line": 338
+        }
+      ]
+    },
+    {
+      "id": "feat-9928bdf9bc3a",
+      "text": "Add cryptographic hashing protocols to the SOP for prompt logging",
+      "previous_status": "implemented",
+      "new_status": "planned",
+      "reason": "keyword-only",
+      "claim": "keyword-only",
+      "evidence": null,
+      "source_refs": [
+        {
+          "rel_path": "aiChatsThread/01-onupaway-os-syllabuscritique-grok.md",
+          "line": 8
+        }
+      ]
+    },
+    {
+      "id": "feat-9f6bf385f44b",
+      "text": "align explicitly with capstone objectives in the objective statement",
+      "previous_status": "implemented",
+      "new_status": "planned",
+      "reason": "unverified-claim",
+      "claim": "unverified-claim",
+      "evidence": null,
+      "source_refs": [
+        {
+          "rel_path": "aiChatsThread/01-onupaway-os-syllabuscritique-grok.md",
+          "line": 267
+        }
+      ]
+    },
+    {
+      "id": "feat-9fbf4645d850",
+      "text": "Design boot-time logging hooks, plan kernel architecture for multimedia support, specify scheduler requirements for real-time AR/VR",
+      "previous_status": "implemented",
+      "new_status": "planned",
+      "reason": "keyword-only",
+      "claim": "keyword-only",
+      "evidence": null,
+      "source_refs": [
+        {
+          "rel_path": "aiChatsThread/2-onupaway-os-syllabuscritique-claude.md",
+          "line": 336
+        }
+      ]
+    },
+    {
+      "id": "feat-a001e05bef28",
+      "text": "Design workflows with recursive update mechanisms",
+      "previous_status": "implemented",
+      "new_status": "planned",
+      "reason": "unverified-claim",
+      "claim": "unverified-claim",
+      "evidence": null,
+      "source_refs": [
+        {
+          "rel_path": "aiChatsThread/01-onupaway-os-syllabuscritique-grok.md",
+          "line": 45
+        }
+      ]
+    },
+    {
+      "id": "feat-a17388d1d615",
+      "text": "Define quantitative metrics for evaluating multi-modal OS performance against existing platforms",
+      "previous_status": "implemented",
+      "new_status": "planned",
+      "reason": "unverified-claim",
+      "claim": "unverified-claim",
+      "evidence": null,
+      "source_refs": [
+        {
+          "rel_path": "aiChatsThread/2-onupaway-os-syllabuscritique-claude.md",
+          "line": 683
+        }
+      ]
+    },
+    {
+      "id": "feat-a747d74d9f54",
+      "text": "Add cross-discipline outcomes",
+      "previous_status": "implemented",
+      "new_status": "planned",
+      "reason": "unverified-claim",
+      "claim": "unverified-claim",
+      "evidence": null,
+      "source_refs": [
+        {
+          "rel_path": "aiChatsThread/01-onupaway-os-syllabuscritique-grok.md",
+          "line": 82
+        }
+      ]
+    },
+    {
+      "id": "feat-aac8bfaaf5bf",
+      "text": "Ensure each module has a clear path for iterative refinement, including version control hooks and formal verification for critical components",
+      "previous_status": "implemented",
+      "new_status": "planned",
+      "reason": "keyword-only",
+      "claim": "keyword-only",
+      "evidence": null,
+      "source_refs": [
+        {
+          "rel_path": "aiChatsThread/thread-compilation-report.md",
+          "line": 61
+        }
+      ]
+    },
+    {
+      "id": "feat-c0429fb42afb",
+      "text": "profile mobile media",
+      "previous_status": "implemented",
+      "new_status": "planned",
+      "reason": "keyword-only",
+      "claim": "keyword-only",
+      "evidence": null,
+      "source_refs": [
+        {
+          "rel_path": "aiChatsThread/01-onupaway-os-syllabuscritique-grok.md",
+          "line": 385
+        }
+      ]
+    },
+    {
+      "id": "feat-c44ce4013f55",
+      "text": "Quantify platform metrics",
+      "previous_status": "implemented",
+      "new_status": "planned",
+      "reason": "unverified-claim",
+      "claim": "unverified-claim",
+      "evidence": null,
+      "source_refs": [
+        {
+          "rel_path": "aiChatsThread/01-onupaway-os-syllabuscritique-grok.md",
+          "line": 443
+        }
+      ]
+    },
+    {
+      "id": "feat-cb539293ca37",
+      "text": "Map all dependencies",
+      "previous_status": "implemented",
+      "new_status": "planned",
+      "reason": "unverified-claim",
+      "claim": "unverified-claim",
+      "evidence": null,
+      "source_refs": [
+        {
+          "rel_path": "aiChatsThread/01-onupaway-os-syllabuscritique-grok.md",
+          "line": 435
+        }
+      ]
+    },
+    {
+      "id": "feat-cd626846352b",
+      "text": "Define JSON schemas, cryptographic hashes, and API endpoints for the ledger. Add formal validation and benchmarking to ensure large\u2011scale logging remains performant",
+      "previous_status": "implemented",
+      "new_status": "planned",
+      "reason": "keyword-only",
+      "claim": "keyword-only",
+      "evidence": null,
+      "source_refs": [
+        {
+          "rel_path": "aiChatsThread/thread-compilation-report.md",
+          "line": 32
+        }
+      ]
+    },
+    {
+      "id": "feat-cfccffcf438b",
+      "text": "Set usage metrics in proposals",
+      "previous_status": "implemented",
+      "new_status": "planned",
+      "reason": "unverified-claim",
+      "claim": "unverified-claim",
+      "evidence": null,
+      "source_refs": [
+        {
+          "rel_path": "aiChatsThread/01-onupaway-os-syllabuscritique-grok.md",
+          "line": 338
+        }
+      ]
+    },
+    {
+      "id": "feat-d2c213539746",
+      "text": "outline resource needs in the wings artifacts for grant budgeting",
+      "previous_status": "implemented",
+      "new_status": "planned",
+      "reason": "keyword-only",
+      "claim": "keyword-only",
+      "evidence": null,
+      "source_refs": [
+        {
+          "rel_path": "aiChatsThread/01-onupaway-os-syllabuscritique-grok.md",
+          "line": 275
+        }
+      ]
+    },
+    {
+      "id": "feat-d3c47833bfd3",
+      "text": "Define productivity metrics, add institutional deployment plan, highlight novel integration of AI with provenance tracking",
+      "previous_status": "implemented",
+      "new_status": "planned",
+      "reason": "keyword-only",
+      "claim": "keyword-only",
+      "evidence": null,
+      "source_refs": [
+        {
+          "rel_path": "aiChatsThread/2-onupaway-os-syllabuscritique-claude.md",
+          "line": 143
+        }
+      ]
+    },
+    {
+      "id": "feat-d9d025eea02c",
+      "text": "Add CI tests",
+      "previous_status": "implemented",
+      "new_status": "planned",
+      "reason": "unverified-claim",
+      "claim": "unverified-claim",
+      "evidence": null,
+      "source_refs": [
+        {
+          "rel_path": "aiChatsThread/01-onupaway-os-syllabuscritique-grok.md",
+          "line": 224
+        }
+      ]
+    },
+    {
+      "id": "feat-db7df5ce739b",
+      "text": "Link repo metadata to ChainBlockARK logs",
+      "previous_status": "implemented",
+      "new_status": "planned",
+      "reason": "keyword-only",
+      "claim": "keyword-only",
+      "evidence": null,
+      "source_refs": [
+        {
+          "rel_path": "aiChatsThread/01-onupaway-os-syllabuscritique-grok.md",
+          "line": 45
+        }
+      ]
+    },
+    {
+      "id": "feat-df95797af864",
+      "text": "Incorporate scalability benchmarks for ledger growth in examples",
+      "previous_status": "implemented",
+      "new_status": "planned",
+      "reason": "keyword-only",
+      "claim": "keyword-only",
+      "evidence": null,
+      "source_refs": [
+        {
+          "rel_path": "aiChatsThread/01-onupaway-os-syllabuscritique-grok.md",
+          "line": 8
+        }
+      ]
+    },
+    {
+      "id": "feat-e7807f22b44c",
+      "text": "Design recursive logging patterns for ChainBlockARK, create kernel algorithm integration examples, add recursive debugging strategies",
+      "previous_status": "implemented",
+      "new_status": "planned",
+      "reason": "keyword-only",
+      "claim": "keyword-only",
+      "evidence": null,
+      "source_refs": [
+        {
+          "rel_path": "aiChatsThread/2-onupaway-os-syllabuscritique-claude.md",
+          "line": 190
+        }
+      ]
+    },
+    {
+      "id": "feat-e9c71ea2a6f8",
+      "text": "Include a manifesto in docs/recursive-methodology.md outlining how technical development becomes a public performance of self-understanding",
+      "previous_status": "implemented",
+      "new_status": "planned",
+      "reason": "unverified-claim",
+      "claim": "unverified-claim",
+      "evidence": null,
+      "source_refs": [
+        {
+          "rel_path": "aiChatsThread/8-grokRespondsAndResponds.md",
+          "line": 35
+        },
+        {
+          "rel_path": "aiChatsThread/8-grokRespondsAndResponds.md",
+          "line": 181
+        }
+      ]
+    },
+    {
+      "id": "feat-ec1908569009",
+      "text": "Define comprehensive data schemas that evolve from Module 0 ChainBlockARK through Capstone integration",
+      "previous_status": "implemented",
+      "new_status": "planned",
+      "reason": "keyword-only",
+      "claim": "keyword-only",
+      "evidence": null,
+      "source_refs": [
+        {
+          "rel_path": "aiChatsThread/2-onupaway-os-syllabuscritique-claude.md",
+          "line": 670
+        }
+      ]
+    },
+    {
+      "id": "feat-ecbb63d91440",
+      "text": "Map outputs from each module to inputs of later ones. For example, link ChainBlockARK logs to repository metadata, algorithm performance logs, and kernel debug traces",
+      "previous_status": "implemented",
+      "new_status": "planned",
+      "reason": "keyword-only",
+      "claim": "keyword-only",
+      "evidence": null,
+      "source_refs": [
+        {
+          "rel_path": "aiChatsThread/thread-compilation-report.md",
+          "line": 45
+        }
+      ]
+    },
+    {
+      "id": "feat-edd163212e13",
+      "text": "include benchmarks for ledger performance under high-load scenarios",
+      "previous_status": "implemented",
+      "new_status": "planned",
+      "reason": "keyword-only",
+      "claim": "keyword-only",
+      "evidence": null,
+      "source_refs": [
+        {
+          "rel_path": "aiChatsThread/01-onupaway-os-syllabuscritique-grok.md",
+          "line": 259
+        }
+      ]
+    },
+    {
+      "id": "feat-f5351516b52e",
+      "text": "Reference ChainBlockARK for logging recursive processes",
+      "previous_status": "implemented",
+      "new_status": "planned",
+      "reason": "keyword-only",
+      "claim": "keyword-only",
+      "evidence": null,
+      "source_refs": [
+        {
+          "rel_path": "aiChatsThread/01-onupaway-os-syllabuscritique-grok.md",
+          "line": 309
+        }
+      ]
+    },
+    {
+      "id": "feat-ffea4a7f1db1",
+      "text": "Create systematic debugging methodologies specific to each module\u2019s technology stack",
+      "previous_status": "implemented",
+      "new_status": "planned",
+      "reason": "unverified-claim",
+      "claim": "unverified-claim",
+      "evidence": null,
+      "source_refs": [
+        {
+          "rel_path": "aiChatsThread/2-onupaway-os-syllabuscritique-claude.md",
+          "line": 677
+        }
+      ]
+    }
+  ],
+  "new_items": [
+    {
+      "id": "feat-5cb41775ba5d",
+      "text": "Build outputs are untracked and ignored. The `egg-info` tree is",
+      "status": "planned",
+      "verification_status": "unverified",
+      "source_refs": [
+        {
+          "rel_path": "adr/003-privacy-classification.md",
+          "line": 28
+        }
+      ]
+    },
+    {
+      "id": "feat-ba6b3de3ae0f",
+      "text": "Plan: #21 Phase A (steps 1\u20136), implementation plan posted on #21",
+      "status": "planned",
+      "verification_status": "unverified",
+      "source_refs": [
+        {
+          "rel_path": "mentor-roadmap-state.md",
+          "line": 13
+        }
+      ]
+    }
+  ]
+}

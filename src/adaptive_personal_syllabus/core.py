@@ -765,6 +765,13 @@ def _collect_excluded_paths(root: Path, output_paths: list[Path | None]) -> set[
     help="Optional output path for Markdown roadmap.",
 )
 @click.option(
+    "--audited-head",
+    default=None,
+    help="Head the verification records are checked against (full SHA). "
+    "Defaults to the enclosing checkout's HEAD; without a checkout, "
+    "records are rejected as unverifiable.",
+)
+@click.option(
     "--db-path",
     type=click.Path(path_type=Path),
     default=str(DEFAULT_DB_PATH),
@@ -776,16 +783,24 @@ def docs_audit(
     fmt: str,
     write_json: Path | None,
     write_md: Path | None,
+    audited_head: str | None,
     db_path: Path,
 ) -> None:
     """Audit all docs files and map every suggestion/use-case to planned or implemented status."""
+    raw_root = root
     root = root.expanduser().resolve()
     excluded_paths = _collect_excluded_paths(root, [write_json, write_md])
 
     storage = Storage(db_path)
     chain = Ledger(storage)
     auditor = DocsAuditService(storage=storage, ledger=chain)
-    report = auditor.audit(root=root, snapshot_name=snapshot, exclude_paths=excluded_paths)
+    report = auditor.audit(
+        root=root,
+        snapshot_name=snapshot,
+        exclude_paths=excluded_paths,
+        display_root=raw_root,
+        audited_head=audited_head,
+    )
     markdown = render_audit_markdown(report)
 
     if write_json is not None:
