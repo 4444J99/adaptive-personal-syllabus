@@ -1,0 +1,55 @@
+# Agent claim registry — adaptive-personal-syllabus #36 (MTR-010).
+#
+# One active lease per scope. The steward grants a lease; the grant is a
+# record, not a comment (ADR 006). `agent_claims.py` evaluates claims
+# against this file — it never grants, revokes, or writes it.
+#
+# Lease lifecycle: active (fencing) -> fulfilled (work merged) | expired
+# (expiry passed; scope free) | revoked (steward action). A lease that is
+# active past its expiry is a registry violation: the self-check fails
+# until the steward flips it to expired. Fulfilled and expired leases move
+# to grant_history; only `leases` fences.
+#
+# The active list is empty at this head because no claim is in flight:
+# the first grant (#36, this PR) is the work that creates the registry,
+# so it is recorded in grant_history with its receipt. Its scope is the
+# set of paths this PR changes; every scope path classifies public under
+# the #33 inventory (docs/claims/** added by this PR).
+#
+# Scope entries are repo-relative paths. An entry naming a file covers
+# that file; an entry ending in `/` covers everything under that directory.
+schema_version: "1.0"
+repo: adaptive-personal-syllabus
+verified_at_head: 8dc861bcdc0d0792e0685ba577ee566b36a455a2
+issue: 36
+unowned_branches:
+  - branch: work/mentor/audit-truth-contract
+    reason: "Content on main via PR #72 (2ac1bbc); branch head patch-equivalent on main. Ownership sits with #38/#40; no lease until the ownership table gives it a live owner."
+    owner_issue: 38
+  - branch: capture/main-heal-2026-07-02T13-14-42Z
+    reason: "Preservation ref (#40); recover unique hunks only, no wholesale merge, no deletion."
+    owner_issue: 40
+  - branch: wip/preserve-2026-05-31-adaptive-personal-syllabus
+    reason: "Preservation ref (#40); recover unique hunks only, no wholesale merge, no deletion."
+    owner_issue: 40
+leases: []
+grant_history:
+  - sequence: 1
+    grantee: ranked-queue-build
+    issue: 36
+    base: 8dc861bcdc0d0792e0685ba577ee566b36a455a2
+    head: 8dc861bcdc0d0792e0685ba577ee566b36a455a2
+    branch: work/mentor/agent-claims
+    scope:
+      - docs/adr/006-agent-claims.md
+      - docs/claims/leases.yaml
+      - docs/claims/handoff.md
+      - src/adaptive_personal_syllabus/agent_claims.py
+      - tests/test_agent_claims.py
+      - .github/workflows/ci.yml
+      - AGENTS.md
+      - docs/privacy-classification.yaml
+      - BRANCHES.md
+    expiry: "2026-11-29T12:00:00Z"
+    receipt: "Lease grant on #21 (comment 7078376585)"
+    status: granted

@@ -28,7 +28,7 @@ Verified at main `524f57ab` (2026-11-22): every remote branch is accounted for i
 | #33 (MTR-006) | work/mentor/privacy-classification | `7a517249` | main | Merged via PR #82 (`0060a8e1`); head on main. Shared dependency `work/mentor/ingest-boundary` merged via PR #71 (`6d39e28`, Refs #33/#34) |
 | #34 (MTR-007) | work/mentor/ingest-canary-boundary | `2d03c208` | main | Merged via PR #83 (`363c7b1c`); head on main. Shared dependency `work/mentor/ingest-boundary` merged via PR #71 (`6d39e28`, Refs #33/#34) |
 | #35 (MTR-009) | work/mentor/issue-ownership | `524f57ab` | main | In progress (this PR). First adoption: `work/mentor/branch-constitution` via PR #70 (`7010ef1`), merged |
-| #36 (MTR-010) | no branch yet — unclaimed | — | main | Unclaimed; gated on #35 landing |
+| #36 (MTR-010) | work/mentor/agent-claims | `8dc861bc` | main | In progress (this PR); gated on #35 landing, satisfied by PR #85 (`8dc861bc`) |
 | #37 (MTR-011) | no branch yet — unclaimed | — | main | Unclaimed; its plan notes #35/#36 gate implementation, not fact recovery |
 | #38 (MTR-039) | work/mentor/audit-truth-contract | `0235b95` | main | Merged via PR #72 (`2ac1bbc`); branch head patch-equivalent on main (`git cherry` `-`) |
 | #39 (closed) | learning/plan-integrity-v2-2026-09-08 | `888402e` | main | Merged via PR #20 (`019dfc7`); branch diff identical to the squash (20 files, 2323+/555-) |
