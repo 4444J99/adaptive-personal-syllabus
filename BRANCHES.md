@@ -29,7 +29,7 @@ Verified at main `524f57ab` (2026-11-22): every remote branch is accounted for i
 | #34 (MTR-007) | work/mentor/ingest-canary-boundary | `2d03c208` | main | Merged via PR #83 (`363c7b1c`); head on main. Shared dependency `work/mentor/ingest-boundary` merged via PR #71 (`6d39e28`, Refs #33/#34) |
 | #35 (MTR-009) | work/mentor/issue-ownership | `524f57ab` | main | In progress (this PR). First adoption: `work/mentor/branch-constitution` via PR #70 (`7010ef1`), merged |
 | #36 (MTR-010) | work/mentor/agent-claims | `8dc861bc` | main | In progress (this PR); gated on #35 landing, satisfied by PR #85 (`8dc861bc`) |
-| #37 (MTR-011) | no branch yet — unclaimed | — | main | Unclaimed; its plan notes #35/#36 gate implementation, not fact recovery |
+| #37 (MTR-011) | work/mentor/merge-evidence | `38d87112` | main | In progress (this PR); gates on #35/#36 satisfied by PR #85 (`8dc861bc`) and PR #86 (`38d87112`) |
 | #38 (MTR-039) | work/mentor/audit-truth-contract | `0235b95` | main | Merged via PR #72 (`2ac1bbc`); branch head patch-equivalent on main (`git cherry` `-`) |
 | #39 (closed) | learning/plan-integrity-v2-2026-09-08 | `888402e` | main | Merged via PR #20 (`019dfc7`); branch diff identical to the squash (20 files, 2323+/555-) |
 | #40 (MTR-004) | capture/main-heal-2026-07-02T13-14-42Z; wip/preserve-2026-05-31-adaptive-personal-syllabus | — | main (bounded extraction PRs only) | Preservation: recover unique hunks only, no wholesale merge, no deletion. Capture unique content is 19 `.pyc` files + a README diff; wip unique content is `AGENTS.md` / `CLAUDE.md` / `GEMINI.md` diffs |
@@ -62,6 +62,7 @@ Release/* is introduced only by an evidenced freeze requirement for a versioned 
 ## Integration and retirement
 
 An independent review and all applicable tests bind exact head plus relevant base/policy/source versions. New head invalidates old head-specific evidence. Integrate serially and verify default afterwards.
+The contract that decides what evidence permits a merge is docs/merge-evidence.md (ADR 007).
 Delete a short-lived working branch only after successful integration, verified finish line, and a preservation/closure receipt. Preservation refs require a separate explicit retirement decision.
 Preservation refs and any future standing lanes require explicit retirement with no lost unique work. Dormancy is a state, not permission to delete.
 Unpublished work must be captured with a patch/bundle or durable remote branch in its proper privacy boundary before handoff.

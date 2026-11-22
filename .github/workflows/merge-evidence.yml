@@ -1,0 +1,73 @@
+name: Merge Evidence
+
+# #37 (MTR-011): evaluate whether the merge evidence permits a merge.
+# Runs the merge-evidence contract (docs/merge-evidence.md, ADR 007) on
+# every PR head and fails the PR's `merge-evidence` check when the verdict
+# is `reject`. Advisory until the ruleset on main names this check
+# (ADR 007 step 4b, Anthony's action): until then it reports the verdict
+# but the settings layer cannot enforce it.
+#
+# Triggers: pull_request and pull_request_review run from the PR's merge
+# ref, so this workflow runs on the PR that introduces it. check_run
+# re-evaluates when a required check completes — but check-run events run
+# the workflow as defined on the default branch, so that trigger only
+# takes effect after this lands on main. Until then, re-evaluation after
+# CI completes is a re-run of this workflow. The `if:` below limits
+# check_run re-evaluation to the six required checks; this job's own
+# check run is named `merge-evidence` and is not in the list, so it
+# cannot re-trigger itself.
+
+on:
+  pull_request:
+    branches: [main, master, develop]
+    types: [opened, synchronize, reopened]
+  pull_request_review:
+    branches: [main, master, develop]
+    types: [submitted]
+  check_run:
+    types: [completed]
+
+jobs:
+  merge-evidence:
+    runs-on: ubuntu-24.04
+    if: >
+      github.event_name != 'check_run' ||
+      contains(fromJSON('["test (3.11)", "test (3.12)", "Analyze Code (python)", "Secret Pattern Detection", "classification", "clean-checkout"]'), github.event.check_run.name)
+    permissions:
+      contents: read
+      pull-requests: read
+      checks: read
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v7
+
+      - name: Set up Python 3.12
+        uses: actions/setup-python@v7
+        with:
+          python-version: "3.12"
+
+      - name: Install PyYAML
+        run: pip install pyyaml
+
+      - name: Evaluate merge evidence
+        env:
+          PYTHONPATH: src
+        run: |
+          echo "${{ secrets.GITHUB_TOKEN }}" > "$RUNNER_TEMP/merge-evidence-token"
+          HEAD="${{ github.event.pull_request.head.sha || github.event.check_run.head_sha }}"
+          python -m adaptive_personal_syllabus.merge_evidence \
+            --repo "${{ github.repository }}" \
+            --head "$HEAD" \
+            --token-file "$RUNNER_TEMP/merge-evidence-token" \
+            --bundle-out ./merge-evidence-bundle.json
+
+      - name: Remove token file
+        if: always()
+        run: rm -f "$RUNNER_TEMP/merge-evidence-token"
+
+      - name: Upload evidence bundle
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: merge-evidence-bundle
+          path: ./merge-evidence-bundle.json
