@@ -18,6 +18,31 @@ ACTIONABLE_MARKER = re.compile(r"actionable suggestions?\s*:?", re.IGNORECASE)
 USE_CASE_PATTERN = re.compile(r"\buse[- ]cases?\b", re.IGNORECASE)
 LEADING_ENUM_PATTERN = re.compile(r"^\s*(?:[-*•]\s+|\d+\.\s+)+")
 
+# Credential-like patterns, mirroring .github/workflows/secret-scan.yml: a
+# value CI would flag must never be echoed into a generated report (#34 step 3).
+SECRET_PATTERNS = (
+    re.compile(r"sk-[a-zA-Z0-9]{20,}"),
+    re.compile(r"ghp_[a-zA-Z0-9]{36}"),
+    re.compile(r"AKIA[A-Z0-9]{16}"),
+    re.compile(r"sk-ant-[a-zA-Z0-9]{20,}"),
+)
+
+
+def redact_secret_patterns(text: str) -> str:
+    """Replace credential-like substrings with [REDACTED].
+
+    Applied to extracted item text before it enters any report: the audit
+    report echoes admitted file text outside the admitted store, so a
+    credential-like value in an admitted file must not survive extraction.
+    The suggestion itself is kept — only the value is redacted. The admitted
+    store keeps the full text; only the report is scrubbed.
+    """
+    scrubbed = text
+    for pattern in SECRET_PATTERNS:
+        scrubbed = pattern.sub("[REDACTED]", scrubbed)
+    return scrubbed
+
+
 ACTION_VERB_PATTERN = re.compile(
     (
         r"^(add|align|annotate|benchmark|break|build|clarify|create|define|design|develop|"
@@ -270,7 +295,9 @@ def _split_suggestion_blob(blob: str) -> list[str]:
     for candidate in work.split("||"):
         cleaned = _clean_text(candidate)
         if cleaned:
-            parts.append(cleaned)
+            # Extracted text is report-bound: scrub credential-like values here
+            # so no suggestion can carry one into the report (see #34 step 3).
+            parts.append(redact_secret_patterns(cleaned))
     return parts
 
 
@@ -285,7 +312,7 @@ def _extract_items_from_text(text: str, rel_path: str) -> tuple[list[ExtractedIt
             continue
 
         if USE_CASE_PATTERN.search(stripped):
-            cleaned_use_case = _clean_text(stripped)
+            cleaned_use_case = redact_secret_patterns(_clean_text(stripped))
             if cleaned_use_case:
                 use_cases.append(ExtractedItem(cleaned_use_case, rel_path, i))
 
@@ -312,7 +339,7 @@ def _extract_items_from_text(text: str, rel_path: str) -> tuple[list[ExtractedIt
             continue
 
         if re.match(r"^\s*(?:[-*•]|\d+\.)\s+", line):
-            bullet_text = _clean_text(stripped)
+            bullet_text = redact_secret_patterns(_clean_text(stripped))
             if bullet_text and ACTION_VERB_PATTERN.search(bullet_text):
                 suggestions.append(ExtractedItem(bullet_text, rel_path, i))
 
