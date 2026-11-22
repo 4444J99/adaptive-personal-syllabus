@@ -16,9 +16,11 @@
 # Verified against live main f8325de846d19a9f25c38d2606a7baace5fddbae.
 # Amended by #42 (MTR-008, ADR 005): synthetic test-fixture entry added;
 # re-verified against live main 363c7b1c4eba8c82159cd37397962a67a243e612.
+# Amended by #36 (MTR-010, ADR 006): docs/claims/** entry added;
+# re-verified against live main 8dc861bcdc0d0792e0685ba577ee566b36a455a2.
 schema_version: "1.0"
 repo: adaptive-personal-syllabus
-verified_at_head: 363c7b1c4eba8c82159cd37397962a67a243e612
+verified_at_head: 8dc861bcdc0d0792e0685ba577ee566b36a455a2
 issue: 33
 home_path_allowlist: []
 entries:
@@ -41,6 +43,10 @@ entries:
   - patterns: ["docs/adr/*.md"]
     class: public
     evidence: "Architecture decision records (public documentation)"
+    disposition: keep
+  - patterns: ["docs/claims/**"]
+    class: public
+    evidence: "Agent claim registry and handoff records (ADR 006, #36 MTR-010)"
     disposition: keep
   - patterns: ["docs/implementation/**"]
     class: public

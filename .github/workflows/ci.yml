@@ -17,6 +17,8 @@ jobs:
     steps:
       - name: Checkout code
         uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
 
       - name: Set up Python ${{ matrix.python-version }}
         uses: actions/setup-python@v7
@@ -77,6 +79,19 @@ jobs:
       - name: Test with pytest
         run: pytest --cov=. --cov-report=xml --cov-report=term --cov-report=html
 
+      - name: Agent claim check (leases + PR scope)
+        run: |
+          python -m adaptive_personal_syllabus.agent_claims --self-check
+          if [ -n "${{ github.head_ref }}" ]; then
+            git diff --name-only origin/main...HEAD > /tmp/changed-files.txt
+            python -m adaptive_personal_syllabus.agent_claims --pr-check \
+              --branch "${{ github.head_ref }}" \
+              --changed-files /tmp/changed-files.txt \
+              --pr-base "${{ github.event.pull_request.base.sha }}"
+          else
+            echo "not a pull request; PR scope check skipped"
+          fi
+
       - name: Upload docs audit artifacts
         if: success()
         uses: actions/upload-artifact@v7
@@ -124,6 +139,9 @@ jobs:
 
       - name: Test with pytest (no sibling seed)
         run: pytest -q
+
+      - name: Agent claim check (registry consistency)
+        run: python -m adaptive_personal_syllabus.agent_claims --self-check
 
       - name: Synthetic end-to-end run
         run: |
