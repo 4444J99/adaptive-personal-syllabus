@@ -12,14 +12,39 @@ Worktrees: one per active short-lived working branch. Programme categories are i
 
 No develop, master or lane/* branch is established from the current evidence. Recurring work alone does not prove a lane helps: an issue must justify integration need, synchronization method, review ownership and CI coverage before one is adopted. A lane adopted later remains standing or explicitly dormant until a reviewed retirement decision.
 
-## Existing working and preservation refs
+## Issue ownership
 
-| Ref | Treatment | Merge target |
-| --- | --- | --- |
-| learning/plan-integrity-v2-2026-09-08 | Existing PR20 owner; retain its name while healing | main |
-| dependabot/github_actions/github-actions-deps-6af9ef796d | Existing PR19/family owner; preserve unique sibling choices | main |
-| capture/main-heal-2026-07-02T13-14-42Z | Parked preservation source; recover every unique hunk before any retirement | Extract justified residue through a bounded PR to main; no wholesale merge |
-| wip/preserve-2026-05-31-adaptive-personal-syllabus | Parked preservation source; same custody rule | Extract justified residue through the same recovery intention |
+Every open issue resolves to an owning branch, a base SHA, and a merge target below — or to an explicit "no branch yet — unclaimed" row, so unowned work is visible, not silently dropped. Merged rows name the PR and merge commit that integrated the branch; per the retirement rule below, a merged short-lived branch is deletion-earned (deletion itself is a separate step, never performed by a docs PR). Base SHAs are the verified main head at claim time, refreshed at PR time if main moved.
+
+Verified at main `524f57ab` (2026-11-22): every remote branch is accounted for in this table. Corrections to the previous table, verified live this run: the dependabot row cited hash `6af9ef796d`, which matches no live branch — both live Dependabot branches have since merged (PR #77, PR #78) and are listed with their dispositions; the `learning/`, `branch-constitution`, and `ingest-boundary` rows said "retain" but all three branches merged (PR #20, #70, #71) and are deletion-earned; the branches the previous table did not list at all — `work/mentor/audit-truth-contract`, `fix/ledger-…`, `chore/pin-runner-…`, `chore/remove-third-party-transcript`, `work/mentor/ci-baseline`, `work/mentor/control-reconciliation`, `ranked-queue/aps32-toolchain-residue`, `work/mentor/privacy-classification`, `work/mentor/ingest-canary-boundary`, `work/mentor/public-private-contract` — all had merged PRs and are listed with their dispositions. No branch is currently unowned: the five refs the previous drive called orphans all turn out to have merged PRs (#74, #75, #76, #77, #78).
+
+| Issue | Owning branch | Base SHA | Merge target | Status |
+| --- | --- | --- | --- | --- |
+| #6 (ACTIVATION AUDIT: ship-soon) | no branch yet — unclaimed | — | main | Unclaimed; release-gated |
+| #21 (MTR-000, control plan) | work/mentor/control-reconciliation | `3ba8f32` | main | Merged via PR #79; head on main. Future #21 work uses fresh short-lived branches |
+| #22–#30 (epics E01–E09) | no branch yet — unclaimed | — | main | Unclaimed |
+| #31 (MTR-001, closed) | work/mentor/ci-baseline | `2795435` | main | Merged via PR #80; head on main |
+| #32 (MTR-002, closed) | ranked-queue/aps32-toolchain-residue | `27b92f41` | main | Merged via PR #81 (`f8325de8`); head on main |
+| #33 (MTR-006) | work/mentor/privacy-classification | `7a517249` | main | Merged via PR #82 (`0060a8e1`); head on main. Shared dependency `work/mentor/ingest-boundary` merged via PR #71 (`6d39e28`, Refs #33/#34) |
+| #34 (MTR-007) | work/mentor/ingest-canary-boundary | `2d03c208` | main | Merged via PR #83 (`363c7b1c`); head on main. Shared dependency `work/mentor/ingest-boundary` merged via PR #71 (`6d39e28`, Refs #33/#34) |
+| #35 (MTR-009) | work/mentor/issue-ownership | `524f57ab` | main | In progress (this PR). First adoption: `work/mentor/branch-constitution` via PR #70 (`7010ef1`), merged |
+| #36 (MTR-010) | no branch yet — unclaimed | — | main | Unclaimed; gated on #35 landing |
+| #37 (MTR-011) | no branch yet — unclaimed | — | main | Unclaimed; its plan notes #35/#36 gate implementation, not fact recovery |
+| #38 (MTR-039) | work/mentor/audit-truth-contract | `0235b95` | main | Merged via PR #72 (`2ac1bbc`); branch head patch-equivalent on main (`git cherry` `-`) |
+| #39 (closed) | learning/plan-integrity-v2-2026-09-08 | `888402e` | main | Merged via PR #20 (`019dfc7`); branch diff identical to the squash (20 files, 2323+/555-) |
+| #40 (MTR-004) | capture/main-heal-2026-07-02T13-14-42Z; wip/preserve-2026-05-31-adaptive-personal-syllabus | — | main (bounded extraction PRs only) | Preservation: recover unique hunks only, no wholesale merge, no deletion. Capture unique content is 19 `.pyc` files + a README diff; wip unique content is `AGENTS.md` / `CLAUDE.md` / `GEMINI.md` diffs |
+| #41 (MTR-005) | no branch yet — unclaimed | — | main | Unclaimed |
+| #42 (MTR-008) | work/mentor/public-private-contract | `fc5a41ef` | main | Merged via PR #84 (`524f57ab`); head on main |
+| #43 (MTR-012) | work/mentor/repository-layout (proposed, not yet created) | `019dfc70` (plan base; refresh at build time) | main | Planned; branch named in the #43 plan, not yet created |
+| #44 (MTR-013) | no branch yet — unclaimed | — | main | Unclaimed; #45/#46/#47 chain-gated on #44's decision |
+| #45, #46, #47 (MTR-014/015/016) | no branch yet — unclaimed | — | main | Unclaimed; chain-gated on #44 |
+| #48–#69 (MTR-017–MTR-038, except #50/#52/#68) | no branch yet — unclaimed | — | main | Unclaimed (planned) |
+| #50 (MTR-020), #52 (MTR-022), #68 (MTR-037) | no branch yet — unclaimed | — | main | Unclaimed (planned; plans name no branch) |
+| — (no owning issue recorded) | fix/ledger-malformed-payload-integrity-failure-14391782578113217034 | `dc0341d` | main | Merged via PR #74 (`cc39b56`); branch content verified identical on main (2/2 files) |
+| — (no owning issue recorded) | chore/pin-runner-ubuntu-2404-20261012 | `a7c20a1` | main | Merged via PR #75 (`5659bee4`, runner pin, Anthony-approved Oct 12); the follow-up ruff `--fix` hunks are superseded by later main work |
+| — (no owning issue recorded) | chore/remove-third-party-transcript | `75f700e` | main | Merged via PR #76 (`3ba1c28`); the committed runtime `.db` blob exists only on the branch and must not be merged |
+| — (no owning issue recorded) | dependabot/github_actions/github-actions-deps-696b649f44 | `df1cf5c` | main | Merged via PR #78 (`6530a2d`, setup-python 6→7); branch head patch-equivalent on main |
+| — (no owning issue recorded) | dependabot/github_actions/github-actions-deps-84c3d95bcf | `8ade22d` | main | Merged via PR #77 (`7c0821c`, stale 10→11); branch head patch-equivalent on main |
 
 The privacy-classification inventory (`docs/privacy-classification.yaml`,
 decisions in `docs/adr/003-privacy-classification.md`) classifies the two
@@ -40,4 +65,3 @@ An independent review and all applicable tests bind exact head plus relevant bas
 Delete a short-lived working branch only after successful integration, verified finish line, and a preservation/closure receipt. Preservation refs require a separate explicit retirement decision.
 Preservation refs and any future standing lanes require explicit retirement with no lost unique work. Dormancy is a state, not permission to delete.
 Unpublished work must be captured with a patch/bundle or durable remote branch in its proper privacy boundary before handoff.
-
