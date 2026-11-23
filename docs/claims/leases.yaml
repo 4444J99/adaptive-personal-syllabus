@@ -132,3 +132,26 @@ grant_history:
     expiry: "2026-11-29T12:00:00Z"
     receipt: "Lease grant on #21 (comment 7087630405)"
     status: granted
+
+  - sequence: 7
+    grantee: ranked-queue-build
+    issue: 54
+    base: 8f9685c540fc276eeefa9f073f9aee33ccf64129
+    head: 8f9685c540fc276eeefa9f073f9aee33ccf64129
+    branch: work/mentor/live-source-loop
+    scope:
+      - src/adaptive_personal_syllabus/corpus.py
+      - src/adaptive_personal_syllabus/freshness.py
+      - src/adaptive_personal_syllabus/storage.py
+      - src/adaptive_personal_syllabus/planner.py
+      - src/adaptive_personal_syllabus/core.py
+      - tests/test_source_refresh.py
+      - docs/implementation/live-source-refresh.md
+      - docs/implementation/docs-audit-report.json
+      - docs/implementation/docs-audit-roadmap.md
+      - docs/claims/leases.yaml
+      - BRANCHES.md
+    expiry: "2026-11-29T12:00:00Z"
+    receipt: "Lease grant on #21 (comment 7089147949); base refreshed to 8f9685c5 at PR time (PR #91 merged first)"
+    status: granted
+    status: granted
