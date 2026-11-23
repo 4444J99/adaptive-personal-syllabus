@@ -193,11 +193,25 @@ def ledger_verify(db_path: Path) -> None:
     storage = Storage(db_path)
     chain = Ledger(storage)
     ok, errors, event_count = chain.verify_chain()
+    checkpoint = storage.latest_ledger_checkpoint()
+    if checkpoint is None:
+        checkpoint_payload: dict[str, object] = {"status": "absent"}
+    else:
+        # Only errors the checkpoint comparison itself raised name it;
+        # a tamper/malformed error elsewhere leaves the checkpoint match.
+        status = "mismatch" if any("checkpoint" in err for err in errors) else "match"
+        checkpoint_payload = {
+            "status": status,
+            "event_count": int(checkpoint["event_count"]),
+            "head_hash": str(checkpoint["head_hash"]),
+        }
     payload = {
         "schema_version": "1.0",
         "ok": ok,
         "event_count": event_count,
         "errors": errors,
+        "error_categories": sorted({err.split(":", 1)[0] for err in errors}),
+        "checkpoint": checkpoint_payload,
     }
     click.echo(json.dumps(payload, indent=2))
     if not ok:

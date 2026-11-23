@@ -14,6 +14,10 @@ Opening Storage adds `plan_payloads` and `source_judgments`. No historical plan 
 
 The existing older snapshot-binding migration remains unchanged. Back up a historical database before opening it if preserving its pre-existing unbound-snapshot representation is required.
 
+## Ledger checkpoints
+
+Every ledger append records a checkpoint — the chain's event count and head hash — in the same SQLite transaction as the event. A plan row and its `plan.generate` event are written in one transaction, as are a corpus ingest and its `corpus.ingest` event, so a crash between a state write and its ledger event can no longer leave either half behind unnoticed. `ledger verify` compares the live chain against the latest checkpoint and reports a chain shorter than the checkpoint as `truncation` (an event was lost), a rewritten prefix as `tamper`, a malformed payload as `malformed`, and a plan row with no `plan.generate` event as `incomplete`. The check proves no event was lost after the last checkpoint in this database file; it does not prove wall-clock ordering across writers, and verification never writes a checkpoint — re-running it cannot launder a loss. After a crash, run `syllabus ledger verify --db-path <path>` (default `~/.adaptive-syllabus/adaptive_syllabus.db`); a non-zero exit names the failure, and a `truncation` result means restoring the database backup, not re-running verification.
+
 ## Rollback
 
 1. Stop writers and back up the entire SQLite database with SQLite's backup API.

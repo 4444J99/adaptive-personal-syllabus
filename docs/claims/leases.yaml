@@ -113,3 +113,22 @@ grant_history:
     expiry: "2026-11-29T12:00:00Z"
     receipt: "Lease grant on #21 (comment 7082866474)"
     status: granted
+
+  - sequence: 6
+    grantee: ranked-queue-build
+    issue: 52
+    base: 96459abc628a25bae1c9cffcc0914c787bb37cd7
+    head: 96459abc628a25bae1c9cffcc0914c787bb37cd7
+    branch: work/mentor/ledger-consistency
+    scope:
+      - src/adaptive_personal_syllabus/ledger.py
+      - src/adaptive_personal_syllabus/storage.py
+      - src/adaptive_personal_syllabus/planner.py
+      - src/adaptive_personal_syllabus/core.py
+      - tests/test_ledger.py
+      - docs/implementation/learning-plan-integrity-v2.md
+      - docs/claims/leases.yaml
+      - BRANCHES.md
+    expiry: "2026-11-29T12:00:00Z"
+    receipt: "Lease grant on #21 (comment 7087630405)"
+    status: granted

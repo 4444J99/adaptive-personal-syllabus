@@ -2,10 +2,73 @@
 
 from __future__ import annotations
 
+import copy
 from pathlib import Path
 
+from adaptive_personal_syllabus.corpus import CorpusIngestor
 from adaptive_personal_syllabus.ledger import Ledger
+from adaptive_personal_syllabus.planner import Planner
 from adaptive_personal_syllabus.storage import Storage
+from tests.test_planner import _profile, _seed_dir
+
+
+def test_ledger_verify_detects_deleted_final_event(tmp_path: Path) -> None:
+    storage = Storage(tmp_path / "deleted_final.db")
+    ledger = Ledger(storage)
+
+    ledger.append("event.a", {"x": 1})
+    ledger.append("event.b", {"y": 2})
+    ledger.append("event.c", {"z": 3})
+
+    with storage.connection() as conn:
+        conn.execute(
+            "DELETE FROM ledger_events WHERE id = (SELECT MAX(id) FROM ledger_events)"
+        )
+
+    ok, errors, count = ledger.verify_chain()
+    assert ok is False
+    assert count == 2
+    assert any("truncation" in err for err in errors)
+
+
+def test_ledger_verify_detects_deleted_middle_event(tmp_path: Path) -> None:
+    storage = Storage(tmp_path / "deleted_middle.db")
+    ledger = Ledger(storage)
+
+    ledger.append("event.a", {"x": 1})
+    ledger.append("event.b", {"y": 2})
+    ledger.append("event.c", {"z": 3})
+
+    with storage.connection() as conn:
+        conn.execute("DELETE FROM ledger_events WHERE id = 2")
+
+    ok, errors, count = ledger.verify_chain()
+    assert ok is False
+    assert count == 2
+    assert any("truncation" in err or "prev_hash mismatch" in err for err in errors)
+
+
+def test_ledger_verify_detects_state_without_ledger(tmp_path: Path) -> None:
+    storage = Storage(tmp_path / "state_without_ledger.db")
+    root = tmp_path / "corpus"
+    root.mkdir()
+    (root / "a.md").write_text("# Foundations\nFoundations need evidence.\n")
+    ledger = Ledger(storage)
+    CorpusIngestor(storage, ledger).ingest(root, "synthetic")
+    planner = Planner(storage, ledger, _seed_dir(tmp_path))
+    generated = planner.generate(_profile(tmp_path))
+
+    ok, _errors, _count = ledger.verify_chain()
+    assert ok is True
+
+    # Simulate a crash between the plan write and its ledger event: a
+    # second plan row persisted with no plan.generate event behind it.
+    orphan = copy.deepcopy(generated)
+    storage.insert_complete_plan(orphan)
+
+    ok, errors, _count = ledger.verify_chain()
+    assert ok is False
+    assert any("incomplete" in err for err in errors)
 
 
 def test_ledger_verify_success(tmp_path: Path) -> None:
