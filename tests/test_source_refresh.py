@@ -24,6 +24,7 @@ from adaptive_personal_syllabus.freshness import source_freshness
 from adaptive_personal_syllabus.ledger import Ledger
 from adaptive_personal_syllabus.planner import Planner
 from adaptive_personal_syllabus.storage import Storage
+from tests.admission_helpers import admit_all_documents
 
 
 def _seed_dir(base: Path) -> Path:
@@ -385,8 +386,11 @@ def test_refresh_never_promotes_candidate_to_support(tmp_path: Path) -> None:
     root, storage, ledger = _setup(
         tmp_path, {"relevant.md": "# Foundations\nrecursive foundations"}
     )
-    _ingest(root, storage, ledger)
+    snapshot = _ingest(root, storage, ledger)
     _refresh(root, storage, ledger)
+    # Source admission (#48): refresh observes; only admission makes a
+    # document a candidate.
+    admit_all_documents(storage, snapshot.snapshot_id)
     planner = Planner(storage=storage, ledger=ledger, seed_dir=_seed_dir(tmp_path))
     plan = planner.generate(_profile(tmp_path))
     candidates = _candidates(plan)

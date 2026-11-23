@@ -9,6 +9,7 @@ import re
 from pathlib import Path
 from typing import Any
 
+from .admission import redact_rel_path
 from .encounter import adapt_encounter
 from .freshness import EXCLUDED_STATES, summarize_snapshot_freshness
 from .generator import SyllabusGenerator
@@ -159,7 +160,13 @@ class Planner:
                 "source_support": "source_support_unverified",
                 "reviewer_status": "not_reviewed",
                 "judgment_method": None,
-                "document_completeness": "not_established",
+                # Source admission (#48): only admitted, passage-kind
+                # documents reach this method at all (see generate);
+                # the stamps say so, and completeness is computed from
+                # the stored state instead of hard-coded.
+                "admission_status": "admitted",
+                "content_kind": str(chunk.get("content_kind") or "passage"),
+                "document_completeness": "complete",
             }
             for _, chunk in candidates[:3]
         ]
@@ -237,6 +244,12 @@ class Planner:
         fresh_by_doc = {
             int(item["document_id"]): item for item in freshness["sources"]
         }
+        # Source admission (#48): a candidate must be admitted, passage
+        # kind, and not private-access. Admission answers "may this
+        # source be used"; it never promotes a candidate to support.
+        # The map is read before both exclusion passes so a private
+        # path is redacted in the freshness exclusions as well.
+        admission_map = self.storage.admission_map_for_snapshot(snapshot_id)
         excluded_sources: list[dict[str, Any]] = []
         excluded_doc_ids: set[int] = set()
         usable_chunks = []
@@ -246,12 +259,41 @@ class Planner:
             if state in EXCLUDED_STATES:
                 if doc_id not in excluded_doc_ids:
                     excluded_doc_ids.add(doc_id)
+                    access = admission_map.get(doc_id, {}).get("access")
                     excluded_sources.append(
                         {
                             "document_id": doc_id,
-                            "rel_path": str(chunk["rel_path"]),
+                            "rel_path": redact_rel_path(str(chunk["rel_path"]), access),
                             "state": str(state),
                             "reason": str(fresh_by_doc[doc_id].get("reason")),
+                        }
+                    )
+                continue
+            usable_chunks.append((chunk, tokens))
+        chunks = usable_chunks
+        excluded_admission: list[dict[str, Any]] = []
+        excluded_admission_ids: set[int] = set()
+        usable_chunks = []
+        for chunk, tokens in chunks:
+            doc_id = int(chunk["document_id"])
+            state = admission_map.get(doc_id, {"status": "unadmitted", "access": None})
+            kind = str(chunk.get("content_kind") or "passage")
+            if state["status"] != "admitted" or kind != "passage" or state.get("access") == "private":
+                if doc_id not in excluded_admission_ids:
+                    excluded_admission_ids.add(doc_id)
+                    if state.get("access") == "private":
+                        reason = "private_access"
+                    elif state["status"] != "admitted":
+                        reason = f"admission_{state['status']}"
+                    else:
+                        reason = "metadata_only"
+                    excluded_admission.append(
+                        {
+                            "document_id": doc_id,
+                            "rel_path": redact_rel_path(
+                                str(chunk["rel_path"]), state.get("access")
+                            ),
+                            "reason": reason,
                         }
                     )
                 continue
@@ -300,6 +342,24 @@ class Planner:
                 item for item in freshness["sources"] if int(item["document_id"]) in candidate_doc_ids
             ],
         }
+        # Source admission (#48): which documents were kept out of
+        # selection by the admission decision, and why. Added after the
+        # fingerprint like freshness: the decision can change without
+        # the plan's modules changing, and the exclusion list is the
+        # evidence that unadmitted sources never reached a candidate.
+        admission_summary: dict[str, int] = {"unadmitted": 0, "admitted": 0}
+        for state in admission_map.values():
+            key = str(state["status"])
+            admission_summary[key] = admission_summary.get(key, 0) + 1
+            if state.get("access") == "private":
+                admission_summary["private_access"] = (
+                    admission_summary.get("private_access", 0) + 1
+                )
+        plan_admission = {
+            "snapshot_id": snapshot_id,
+            "summary": admission_summary,
+            "excluded_sources": excluded_admission,
+        }
         plan: dict[str, Any] = {
             "schema_version": "2.0",
             "plan_id": plan_uid,
@@ -316,6 +376,7 @@ class Planner:
             },
             "snapshot": snapshot,
             "source_freshness": plan_freshness,
+            "source_admission": plan_admission,
             "determinism_inputs": {
                 "fingerprint_schema_version": FINGERPRINT_SCHEMA_VERSION,
                 "snapshot_id": snapshot_id,

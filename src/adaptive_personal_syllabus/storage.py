@@ -188,6 +188,48 @@ class Storage:
             started_at TEXT NOT NULL,
             finished_at TEXT,
             outcome_counts_json TEXT NOT NULL)""")
+
+        # Source admission (#48, MTR-017). One row per decision; the latest
+        # row for a (root_path, rel_path, sha256) source wins. Admission
+        # binds to exact bytes, so a sha drift leaves the source
+        # unadmitted until re-admitted. Admit rows carry the mandatory
+        # fields; revoke rows carry revoked_by / revocation_reason and
+        # NULL admit fields. No row means `unadmitted`.
+        conn.execute("""CREATE TABLE IF NOT EXISTS source_admissions (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            root_path TEXT NOT NULL,
+            rel_path TEXT NOT NULL,
+            sha256 TEXT NOT NULL,
+            document_id INTEGER NOT NULL,
+            decision TEXT NOT NULL,
+            owner TEXT,
+            license TEXT,
+            access TEXT,
+            provenance TEXT,
+            admitted_by TEXT,
+            admission_basis TEXT,
+            reviewer TEXT,
+            reviewed_at TEXT,
+            admitted_at TEXT,
+            revoked_by TEXT,
+            revocation_reason TEXT,
+            revoked_at TEXT)""")
+        conn.execute(
+            "CREATE INDEX IF NOT EXISTS idx_source_admissions_source "
+            "ON source_admissions(root_path, rel_path, sha256)"
+        )
+
+        # Content kind (#48 step 3): passage (decoded text exists) /
+        # metadata_only (binary intake, no extraction) / extraction_failed.
+        # Backfill by family: only binary intake is metadata-only at
+        # ingest time (text files decode or fail the ingest outright).
+        document_columns = self._table_columns(conn, "documents")
+        if "content_kind" not in document_columns:
+            conn.execute("ALTER TABLE documents ADD COLUMN content_kind TEXT")
+            conn.execute(
+                "UPDATE documents SET content_kind = "
+                "CASE WHEN family = 'binary' THEN 'metadata_only' ELSE 'passage' END"
+            )
         self._backfill_snapshot_bindings(conn)
 
     def initialize_schema(self) -> None:
@@ -216,6 +258,7 @@ class Storage:
                     lines INTEGER NOT NULL,
                     mime TEXT NOT NULL,
                     family TEXT NOT NULL,
+                    content_kind TEXT NOT NULL DEFAULT 'passage',
                     ingested_at TEXT NOT NULL,
                     FOREIGN KEY(snapshot_id) REFERENCES snapshots(id) ON DELETE CASCADE
                 );
@@ -392,6 +435,7 @@ class Storage:
         mime: str,
         family: str,
         ingested_at: str,
+        content_kind: str = "passage",
         *,
         conn: sqlite3.Connection | None = None,
     ) -> int:
@@ -407,14 +451,16 @@ class Storage:
                     mime=mime,
                     family=family,
                     ingested_at=ingested_at,
+                    content_kind=content_kind,
                     conn=db_conn,
                 )
         cur = conn.execute(
             """
             INSERT INTO documents(
-                snapshot_id, canonical_path, rel_path, sha256, bytes, lines, mime, family, ingested_at
+                snapshot_id, canonical_path, rel_path, sha256, bytes, lines, mime, family,
+                content_kind, ingested_at
             )
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             """,
             (
                 snapshot_id,
@@ -425,10 +471,32 @@ class Storage:
                 lines,
                 mime,
                 family,
+                content_kind,
                 ingested_at,
             ),
         )
         return self._cursor_lastrowid(cur)
+
+    def get_document(
+        self,
+        document_id: int,
+        *,
+        conn: sqlite3.Connection | None = None,
+    ) -> dict[str, Any] | None:
+        """One document row with its snapshot's root path (source identity)."""
+        if conn is None:
+            with self.connection() as db_conn:
+                return self.get_document(document_id, conn=db_conn)
+        row = conn.execute(
+            """
+            SELECT d.*, s.root_path AS root_path
+            FROM documents d
+            JOIN snapshots s ON s.id = d.snapshot_id
+            WHERE d.id = ?
+            """,
+            (document_id,),
+        ).fetchone()
+        return dict(row) if row else None
 
     def insert_aliases(
         self,
@@ -576,6 +644,16 @@ class Storage:
                 source_freshness = summarize_snapshot_freshness(
                     self, snapshot_id=selected_id, conn=conn
                 )
+                # Source admission (#48 step 7): a `private`-access
+                # decision redacts the source's path from every output
+                # surface, including this freshness block.
+                admission_map = self.admission_map_for_snapshot(
+                    selected_id, conn=conn
+                )
+                for item in source_freshness["sources"]:
+                    access = admission_map.get(int(item["document_id"]), {}).get("access")
+                    if access == "private":
+                        item["rel_path"] = "[redacted: private]"
 
         family_breakdown = {str(row["family"]): int(row["n"]) for row in by_family_rows}
         return {
@@ -599,7 +677,7 @@ class Storage:
         limit: int | None = None,
     ) -> list[dict[str, Any]]:
         query = """
-            SELECT id, snapshot_id, canonical_path, rel_path, family, sha256
+            SELECT id, snapshot_id, canonical_path, rel_path, family, sha256, content_kind
             FROM documents
             WHERE snapshot_id = ?
             ORDER BY canonical_path
@@ -631,7 +709,7 @@ class Storage:
             rows = conn.execute(
                 """
                 SELECT d.snapshot_id, d.id AS document_id, d.canonical_path, d.rel_path, d.sha256,
-                       c.chunk_index, c.heading_path, c.text
+                       d.content_kind, c.chunk_index, c.heading_path, c.text
                 FROM document_chunks c
                 JOIN documents d ON d.id = c.document_id
                 WHERE d.snapshot_id = ?
@@ -939,10 +1017,18 @@ class Storage:
             }
 
     def get_passage(self, document_id: int, chunk_index: int) -> dict[str, Any] | None:
-        """Read snapshot text even when the original external file is no longer available."""
+        """Read snapshot text even when the original external file is no longer available.
+
+        `document_completeness` is computed from the stored state (#48
+        step 3): a chunk-bearing passage document is `complete`; the
+        hard-coded `not_established` is gone. A document with no chunk
+        at this index returns None — the caller reports a `metadata_only`
+        document by kind instead of erroring on a missing passage.
+        """
         with self.connection() as conn:
             row = conn.execute(
                 """SELECT d.snapshot_id,d.id AS document_id,d.sha256,d.rel_path,
+                d.content_kind,
                 c.chunk_index,c.heading_path,c.text FROM document_chunks c
                 JOIN documents d ON d.id=c.document_id WHERE d.id=? AND c.chunk_index=?""",
                 (document_id, chunk_index),
@@ -957,7 +1043,7 @@ class Storage:
                     (document_id,),
                 )
             ]
-            result["document_completeness"] = "not_established"
+            result["document_completeness"] = "complete"
             return result
 
     def record_source_judgment(self, record: dict[str, Any]) -> int:
@@ -1246,3 +1332,127 @@ class Storage:
             """,
             (finished_at, json.dumps(outcome_counts, sort_keys=True), run_id),
         )
+
+    # -- Source admission (#48, MTR-017) ------------------------------------
+
+    def record_source_admission(
+        self,
+        row: dict[str, Any],
+        *,
+        conn: sqlite3.Connection | None = None,
+    ) -> int:
+        """Append one admission decision row (admit or revoke)."""
+        if conn is None:
+            with self.connection() as db_conn:
+                return self.record_source_admission(row, conn=db_conn)
+        cur = conn.execute(
+            """
+            INSERT INTO source_admissions(
+                root_path, rel_path, sha256, document_id, decision,
+                owner, license, access, provenance, admitted_by,
+                admission_basis, reviewer, reviewed_at, admitted_at,
+                revoked_by, revocation_reason, revoked_at
+            )
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            """,
+            (
+                row["root_path"],
+                row["rel_path"],
+                row["sha256"],
+                row["document_id"],
+                row["decision"],
+                row.get("owner"),
+                row.get("license"),
+                row.get("access"),
+                row.get("provenance"),
+                row.get("admitted_by"),
+                row.get("admission_basis"),
+                row.get("reviewer"),
+                row.get("reviewed_at"),
+                row.get("admitted_at"),
+                row.get("revoked_by"),
+                row.get("revocation_reason"),
+                row.get("revoked_at"),
+            ),
+        )
+        return self._cursor_lastrowid(cur)
+
+    def latest_source_admission(
+        self,
+        root_path: str,
+        rel_path: str,
+        sha256: str | None = None,
+        *,
+        conn: sqlite3.Connection | None = None,
+    ) -> dict[str, Any] | None:
+        """The latest decision for one source identity.
+
+        With `sha256`, only a decision bound to those exact bytes counts.
+        Without it, the latest decision for the source regardless of bytes
+        (refresh uses this: a revoked source's bytes are never re-read).
+        """
+        if conn is None:
+            with self.connection() as db_conn:
+                return self.latest_source_admission(
+                    root_path, rel_path, sha256, conn=db_conn
+                )
+        if sha256 is None:
+            rows = conn.execute(
+                """
+                SELECT * FROM source_admissions
+                WHERE root_path = ? AND rel_path = ?
+                ORDER BY id DESC LIMIT 1
+                """,
+                (root_path, rel_path),
+            ).fetchone()
+        else:
+            rows = conn.execute(
+                """
+                SELECT * FROM source_admissions
+                WHERE root_path = ? AND rel_path = ? AND sha256 = ?
+                ORDER BY id DESC LIMIT 1
+                """,
+                (root_path, rel_path, sha256),
+            ).fetchone()
+        return dict(rows) if rows is not None else None
+
+    def admission_map_for_snapshot(
+        self,
+        snapshot_id: int,
+        *,
+        conn: sqlite3.Connection | None = None,
+    ) -> dict[int, dict[str, Any]]:
+        """One admission state per document in a snapshot.
+
+        Status is `admitted` only when the latest decision bound to the
+        document's exact bytes is `admitted`; otherwise the decision
+        (`rejected` / `revoked`) or `unadmitted` when no row exists.
+        """
+        if conn is None:
+            with self.connection() as db_conn:
+                return self.admission_map_for_snapshot(snapshot_id, conn=db_conn)
+        docs = conn.execute(
+            """
+            SELECT d.id AS document_id, s.root_path AS root_path,
+                   d.rel_path AS rel_path, d.sha256 AS sha256
+            FROM documents d
+            JOIN snapshots s ON s.id = d.snapshot_id
+            WHERE d.snapshot_id = ?
+            """,
+            (snapshot_id,),
+        ).fetchall()
+        result: dict[int, dict[str, Any]] = {}
+        for doc in docs:
+            row = self.latest_source_admission(
+                str(doc["root_path"]),
+                str(doc["rel_path"]),
+                sha256=str(doc["sha256"]),
+                conn=conn,
+            )
+            decision = str(row["decision"]) if row is not None else "unadmitted"
+            result[int(doc["document_id"])] = {
+                "status": decision,
+                "decision": decision,
+                "access": str(row["access"]) if row is not None and row.get("access") else None,
+            }
+        return result

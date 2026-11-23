@@ -16,6 +16,7 @@ from adaptive_personal_syllabus.ledger import Ledger
 from adaptive_personal_syllabus.planner import Planner
 from adaptive_personal_syllabus.storage import Storage
 from adaptive_personal_syllabus.support import summarize_judgments
+from tests.admission_helpers import admit_all_documents
 from tests.test_planner import _profile, _seed_dir
 
 
@@ -59,7 +60,7 @@ def test_binary_alias_does_not_discard_available_text(tmp_path: Path) -> None:
     assert passage is not None
     assert passage["rel_path"] == "z.txt"
     assert passage["aliases"][0].endswith("a.pdf")
-    assert passage["document_completeness"] == "not_established"
+    assert passage["document_completeness"] == "complete"
 
 
 def test_distinct_same_names_and_aliases_retain_snapshot_identity(tmp_path: Path) -> None:
@@ -170,7 +171,7 @@ def test_judgment_cannot_invent_completeness_or_inspection_metadata(tmp_path: Pa
     )
     storage.record_source_judgment(record)
     stored = storage.list_source_judgments(chunk["document_id"])[0]
-    assert stored["document_completeness"] == "not_established"
+    assert stored["document_completeness"] == "complete"
     assert stored["inspection_status"] == "passage_inspected_by_declared_reviewer"
     assert stored["source_support"] == "source_support_unverified"
     assert stored["passage_sha256"] == hashlib.sha256(chunk["text"].encode()).hexdigest()
@@ -218,6 +219,9 @@ def test_partial_malicious_text_stays_data_and_unreviewed(tmp_path: Path) -> Non
         },
     )
     planner = Planner(storage, Ledger(storage), _seed_dir(tmp_path))
+    # Source admission (#48): the fixture document must be admitted
+    # before it can appear as a plan candidate.
+    admit_all_documents(storage, snapshot_id)
     plan = planner.generate(_profile(tmp_path))
     candidates = plan["modules"][0]["source_selection"]["candidates"]
     assert [c["rel_path"] for c in candidates] == ["partial.md"]
@@ -232,7 +236,7 @@ def test_partial_malicious_text_stays_data_and_unreviewed(tmp_path: Path) -> Non
     assert injection not in json.dumps(plan)
     assert plan["output_policy"]["publication_authorized"] is False
     assert candidate["source_support"] == "source_support_unverified"
-    assert candidate["document_completeness"] == "not_established"
+    assert candidate["document_completeness"] == "complete"
     assert storage.list_source_judgments(snapshot_id=snapshot_id) == []
 
 
@@ -244,4 +248,4 @@ def test_missing_external_file_keeps_exact_inspectable_snapshot(tmp_path: Path) 
     assert passage is not None
     assert passage["text"] == "Exact recoverable passage."
     assert passage["sha256"] == chunk["sha256"]
-    assert passage["document_completeness"] == "not_established"
+    assert passage["document_completeness"] == "complete"

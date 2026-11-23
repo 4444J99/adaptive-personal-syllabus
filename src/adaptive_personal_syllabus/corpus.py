@@ -17,6 +17,7 @@ from pathlib import Path
 
 import yaml
 
+from .admission import compute_content_kind
 from .ledger import Ledger
 from .models import CorpusSnapshot
 from .storage import DEFAULT_MAX_AGE_HOURS, REFRESH_CONTENT_OUTCOMES, Storage, utcnow_iso
@@ -419,6 +420,10 @@ class CorpusIngestor:
                     lines=canonical.lines,
                     mime=canonical.mime,
                     family=canonical.family,
+                    # Source admission (#48 step 3): the kind is a
+                    # persisted fact about the content — decoded text
+                    # exists (`passage`) or the intake is metadata-only.
+                    content_kind=compute_content_kind(canonical.text),
                     ingested_at=ingested_at,
                     conn=conn,
                 )
@@ -495,11 +500,16 @@ class CorpusRefresher:
       refuses it: a marker row, bytes never read. The planner excludes it
       until re-admitted.
 
-    Refresh runs only over admitted sources: discovery is the same
-    `discover_documents` ingest uses, so the merged containment +
-    privacy-classification guard (#33/#34) is the admission gate until
-    #48's admission record lands. Refresh never promotes a candidate to
-    support — only a human judgment does (#50).
+    Refresh runs over containment-admitted sources: discovery is the
+    same `discover_documents` ingest uses, so the merged containment +
+    privacy-classification guard (#33/#34) decides what may be read.
+    The admission record (#48) gates *use*, not observation: a refresh
+    re-reads a source whether or not it is admitted — otherwise no
+    evidence could ever be gathered about an unadmitted source — except
+    a source whose latest admission decision is ``revoked``: its bytes
+    are never re-read, the same as an inventory-refused source, and the
+    run records a ``revoked`` marker. Refresh never promotes a candidate
+    to support — only a human judgment does (#50).
     """
 
     def __init__(self, storage: Storage, ledger: Ledger | None = None) -> None:
@@ -675,8 +685,39 @@ class CorpusRefresher:
                 per_source.append({"rel_path": rel_path, "outcome": outcome})
 
             # 1. Admitted files: re-read and compare against the last version.
+            # A source whose latest admission decision is `revoked` is
+            # recorded `revoked` without re-reading bytes (#48 step 4:
+            # revoked documents are excluded from use, and observation
+            # must not read bytes a decision has withdrawn).
             for rel_path in sorted(admitted):
                 retrieved_at = utcnow_iso()
+                latest_decision = self.storage.latest_source_admission(
+                    root_str, rel_path, conn=conn
+                )
+                if (
+                    latest_decision is not None
+                    and str(latest_decision["decision"]) == "revoked"
+                ):
+                    record = known.get(rel_path)
+                    if record is None:
+                        record = self.storage.get_or_create_source_record(
+                            root_str,
+                            rel_path,
+                            max_age_hours
+                            if max_age_hours is not None
+                            else DEFAULT_MAX_AGE_HOURS,
+                            conn=conn,
+                        )
+                    self._record_marker(
+                        conn,
+                        record,
+                        run_id,
+                        retrieved_at,
+                        "revoked",
+                        {"reason": "admission_revoked"},
+                    )
+                    note(rel_path, "revoked")
+                    continue
                 outcome, _ = self._refresh_admitted(
                     conn,
                     root,
@@ -746,6 +787,21 @@ class CorpusRefresher:
                     conn=conn,
                 )
 
+        # Source admission (#48 step 7): a `private`-access source's path
+        # never appears in output — the refresh summary redacts it like
+        # every other surface. The observation itself is unchanged.
+        from .admission import redact_rel_path
+
+        redacted_sources: list[dict] = []
+        for entry in per_source:
+            decision = self.storage.latest_source_admission(
+                root_str, str(entry["rel_path"])
+            )
+            access = str(decision["access"]) if decision is not None else None
+            redacted_sources.append(
+                {**entry, "rel_path": redact_rel_path(str(entry["rel_path"]), access)}
+            )
+
         return {
             "schema_version": "1.0",
             "refresh_run_id": run_id,
@@ -753,5 +809,5 @@ class CorpusRefresher:
             "started_at": started_at,
             "finished_at": finished_at,
             "outcome_counts": outcomes,
-            "sources": per_source,
+            "sources": redacted_sources,
         }
