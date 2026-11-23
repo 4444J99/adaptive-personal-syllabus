@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import csv
+import errno
 import fnmatch
 import hashlib
 import json
@@ -18,7 +19,17 @@ import yaml
 
 from .ledger import Ledger
 from .models import CorpusSnapshot
-from .storage import Storage, utcnow_iso
+from .storage import DEFAULT_MAX_AGE_HOURS, REFRESH_CONTENT_OUTCOMES, Storage, utcnow_iso
+
+
+class RateLimitError(Exception):
+    """A source read refused by the source's rate limiter.
+
+    The local-filesystem adapter never raises this — a local read has no
+    rate limiter — but a remote source adapter (a later build, not this one)
+    raises it, and `CorpusRefresher` maps it to the `rate_limited` outcome.
+    Tests raise it by monkeypatching the read path.
+    """
 
 SUPPORTED_EXTENSIONS = {
     ".md",
@@ -153,11 +164,23 @@ def _is_private_classified(inventory: dict, rel_path: str) -> bool:
     return False
 
 
-def discover_documents(root: Path, exclude_paths: set[Path] | None = None) -> list[Path]:
-    """Discover regular files; symlink aliases are not admitted sources."""
+def discover_documents(
+    root: Path,
+    exclude_paths: set[Path] | None = None,
+    *,
+    apply_inventory: bool = True,
+) -> list[Path]:
+    """Discover regular files; symlink aliases are not admitted sources.
+
+    With `apply_inventory` (the default), the privacy-classification
+    inventory refuses `private-never-in-git` paths: that is admission
+    (#33/#34). With it off, every present file is listed: the refresher
+    uses that to tell `revoked` (present but no longer admitted) apart
+    from `deleted` (absent from the root entirely).
+    """
     root = root.expanduser().resolve(strict=True)
     excluded = {p.expanduser().resolve() for p in (exclude_paths or set())}
-    inventory = _load_privacy_inventory(root)
+    inventory = _load_privacy_inventory(root) if apply_inventory else None
 
     def allowed(path: Path) -> bool:
         if path.is_symlink() or _should_skip(path, root):
@@ -211,6 +234,10 @@ def _read_admitted_bytes(root: Path, path: Path) -> bytes:
             while chunk := os.read(source, 1024 * 1024):
                 chunks.append(chunk)
             return b"".join(chunks)
+    except TimeoutError:
+        # A read that timed out is a refresh outcome, not a boundary error:
+        # let it reach the refresher, which records `timeout` and continues.
+        raise
     except OSError as exc:
         # Do not echo symlink targets or private filesystem paths.
         raise ValueError("ERR_SOURCE_BOUNDARY: source could not be admitted safely") from exc
@@ -313,6 +340,29 @@ def heading_aware_chunks(text: str) -> list[tuple[str, str]]:
     return chunks
 
 
+def build_candidate(root: Path, path: Path) -> CandidateDocument:
+    """Read one admitted file into a candidate (shared by ingest + refresh)."""
+    data = _read_admitted_bytes(root, path)
+    ext = path.suffix.lower()
+    text = None
+    if ext in TEXT_EXTENSIONS:
+        text = _decode_text(data, path)
+        _validate_content(ext, text, path)
+
+    rel_path = str(path.relative_to(root))
+    return CandidateDocument(
+        path=path,
+        rel_path=rel_path,
+        extension=ext,
+        sha256=_sha256(data),
+        size_bytes=len(data),
+        lines=_count_lines(text, data),
+        mime=_mime(path),
+        family=_family(ext),
+        text=text,
+    )
+
+
 class CorpusIngestor:
     """Ingest repository corpus, deduplicate by content hash, and persist chunks."""
 
@@ -321,25 +371,7 @@ class CorpusIngestor:
         self.ledger = ledger
 
     def _build_candidate(self, root: Path, path: Path) -> CandidateDocument:
-        data = _read_admitted_bytes(root, path)
-        ext = path.suffix.lower()
-        text = None
-        if ext in TEXT_EXTENSIONS:
-            text = _decode_text(data, path)
-            _validate_content(ext, text, path)
-
-        rel_path = str(path.relative_to(root))
-        return CandidateDocument(
-            path=path,
-            rel_path=rel_path,
-            extension=ext,
-            sha256=_sha256(data),
-            size_bytes=len(data),
-            lines=_count_lines(text, data),
-            mime=_mime(path),
-            family=_family(ext),
-            text=text,
-        )
+        return build_candidate(root, path)
 
     def ingest(
         self,
@@ -439,3 +471,287 @@ class CorpusIngestor:
             unique_payload_count=int(snapshot["unique_payload_count"]),
             created_at=str(snapshot["created_at"]),
         )
+
+
+class CorpusRefresher:
+    """Re-read a live source and record one outcome per source (#54, MTR-018).
+
+    A refresh is a freshness-recording pass, not a re-ingest: it never
+    creates a snapshot, never duplicates a document row, and never rewrites
+    history. What it records, per source, is a `source_versions` row:
+
+    - ``ok`` — first observation of a source, or recovery after a
+      ``deleted`` / ``revoked`` / failed marker. A new version row.
+    - ``unchanged`` — same bytes as the latest content version: no new
+      version row (idempotent replay), but the version's ``retrieved_at``
+      advances to this read, so a just-confirmed source does not
+      false-positive stale.
+    - ``changed`` — different bytes: a new version under the same source id.
+    - ``timeout`` / ``rate_limited`` / ``error`` — the read failed for this
+      source only; the failure is recorded, the other sources still refresh,
+      and the prior version stays usable-but-stale.
+    - ``deleted`` — the file is gone from the root: a marker row, no bytes.
+    - ``revoked`` — the file is present but the privacy inventory now
+      refuses it: a marker row, bytes never read. The planner excludes it
+      until re-admitted.
+
+    Refresh runs only over admitted sources: discovery is the same
+    `discover_documents` ingest uses, so the merged containment +
+    privacy-classification guard (#33/#34) is the admission gate until
+    #48's admission record lands. Refresh never promotes a candidate to
+    support — only a human judgment does (#50).
+    """
+
+    def __init__(self, storage: Storage, ledger: Ledger | None = None) -> None:
+        self.storage = storage
+        self.ledger = ledger
+
+    def _record_marker(
+        self,
+        conn,
+        record: dict,
+        run_id: int,
+        retrieved_at: str,
+        outcome: str,
+        detail: dict,
+    ) -> None:
+        self.storage.insert_source_version(
+            int(record["id"]),
+            None,
+            str(run_id),
+            retrieved_at,
+            outcome,
+            detail,
+            conn=conn,
+        )
+
+    def _refresh_admitted(
+        self,
+        conn,
+        root: Path,
+        path: Path,
+        rel_path: str,
+        record: dict | None,
+        max_age_hours: int | None,
+        run_id: int,
+        retrieved_at: str,
+    ) -> tuple[str, dict]:
+        """Re-read one admitted file; returns (outcome, detail)."""
+        try:
+            candidate = build_candidate(root, path)
+        except RateLimitError:
+            outcome, detail = "rate_limited", {"reason": "rate_limited"}
+        except TimeoutError:
+            outcome, detail = "timeout", {"reason": "timeout"}
+        except OSError as exc:
+            if exc.errno == errno.ETIMEDOUT:
+                outcome, detail = "timeout", {"reason": "timeout"}
+            else:
+                outcome, detail = "error", {"reason": "read_error"}
+        except ValueError as exc:
+            outcome, detail = "error", {"reason": str(exc).split(":")[0]}
+        else:
+            return self._record_content(
+                conn, candidate, root, rel_path, record, max_age_hours, run_id, retrieved_at
+            )
+
+        # A failed read still records its outcome for this source only.
+        if record is None:
+            record = self.storage.get_or_create_source_record(
+                str(root),
+                rel_path,
+                max_age_hours if max_age_hours is not None else DEFAULT_MAX_AGE_HOURS,
+                conn=conn,
+            )
+        elif max_age_hours is not None:
+            self.storage.set_source_max_age(int(record["id"]), max_age_hours, conn=conn)
+        content = self.storage.latest_content_version(int(record["id"]), conn=conn)
+        self._record_marker(
+            conn,
+            record,
+            run_id,
+            retrieved_at,
+            outcome,
+            {**detail, "last_good_sha256": content["sha256"] if content else None},
+        )
+        return outcome, detail
+
+    def _record_content(
+        self,
+        conn,
+        candidate: CandidateDocument,
+        root: Path,
+        rel_path: str,
+        record: dict | None,
+        max_age_hours: int | None,
+        run_id: int,
+        retrieved_at: str,
+    ) -> tuple[str, dict]:
+        """Record a successful re-read; returns (outcome, detail).
+
+        Same bytes as the latest content version with a healthy lineage:
+        no new version row, the version's `retrieved_at` advances
+        (idempotent replay). A new version row only when the bytes changed,
+        or when the previous observation was a marker the read recovers
+        from — the marker stays in history, the recovery is observed.
+        """
+        if record is None:
+            record = self.storage.get_or_create_source_record(
+                str(root),
+                rel_path,
+                max_age_hours if max_age_hours is not None else DEFAULT_MAX_AGE_HOURS,
+                conn=conn,
+            )
+        elif max_age_hours is not None:
+            self.storage.set_source_max_age(int(record["id"]), max_age_hours, conn=conn)
+        record_id = int(record["id"])
+        latest = self.storage.latest_source_version(record_id, conn=conn)
+        content = self.storage.latest_content_version(record_id, conn=conn)
+        if latest is not None and str(latest["outcome"]) not in REFRESH_CONTENT_OUTCOMES:
+            # Recovery: the previous observation was a deleted / revoked /
+            # failed marker. A new version row records the recovery even
+            # when the bytes match the last good version.
+            self.storage.insert_source_version(
+                record_id,
+                candidate.sha256,
+                str(run_id),
+                retrieved_at,
+                "ok",
+                {"recovered_after": str(latest["outcome"])},
+                conn=conn,
+            )
+            return "ok", {"recovered_after": str(latest["outcome"])}
+        if content is not None and str(content["sha256"]) == candidate.sha256:
+            self.storage.touch_source_version(
+                int(content["id"]), retrieved_at, conn=conn
+            )
+            return "unchanged", {}
+        self.storage.insert_source_version(
+            record_id,
+            candidate.sha256,
+            str(run_id),
+            retrieved_at,
+            "changed" if content is not None else "ok",
+            {},
+            conn=conn,
+        )
+        return ("changed" if content is not None else "ok"), {}
+
+    def refresh(
+        self,
+        root: Path,
+        max_age_hours: int | None = None,
+    ) -> dict:
+        """Re-read every admitted source under `root`; operator-triggered.
+
+        `max_age_hours`, when given, becomes the freshness bound stored on
+        every source record this run touches; new sources otherwise default
+        to `DEFAULT_MAX_AGE_HOURS` (168). A scheduled invocation of this
+        command is the scheduled form — no daemon in this build.
+        """
+        root = root.expanduser().resolve()
+        if not root.exists() or not root.is_dir():
+            raise ValueError(f"Invalid root directory: {root}")
+        started_at = utcnow_iso()
+        root_str = str(root)
+        outcomes: dict[str, int] = {}
+        per_source: list[dict] = []
+        with self.storage.connection() as conn:
+            run_id = self.storage.insert_refresh_run(root_str, started_at, conn=conn)
+            admitted = {
+                str(p.relative_to(root)): p for p in discover_documents(root)
+            }
+            present = {
+                str(p.relative_to(root)): p
+                for p in discover_documents(root, apply_inventory=False)
+            }
+            known = {
+                r["rel_path"]: r
+                for r in self.storage.list_source_records(root_path=root_str, conn=conn)
+            }
+
+            def note(rel_path: str, outcome: str) -> None:
+                outcomes[outcome] = outcomes.get(outcome, 0) + 1
+                per_source.append({"rel_path": rel_path, "outcome": outcome})
+
+            # 1. Admitted files: re-read and compare against the last version.
+            for rel_path in sorted(admitted):
+                retrieved_at = utcnow_iso()
+                outcome, _ = self._refresh_admitted(
+                    conn,
+                    root,
+                    admitted[rel_path],
+                    rel_path,
+                    known.get(rel_path),
+                    max_age_hours,
+                    run_id,
+                    retrieved_at,
+                )
+                note(rel_path, outcome)
+
+            # 2. Known sources present but no longer admitted: revoked.
+            for rel_path in sorted(set(present) - set(admitted)):
+                record = known.get(rel_path)
+                if record is None:
+                    continue
+                retrieved_at = utcnow_iso()
+                self._record_marker(
+                    conn,
+                    record,
+                    run_id,
+                    retrieved_at,
+                    "revoked",
+                    {"reason": "admission_refused"},
+                )
+                note(rel_path, "revoked")
+
+            # 3. Known sources absent from the root: deleted — unless the
+            # path still exists in some unreadable form (symlink, socket),
+            # which is a boundary error, not a deletion.
+            for rel_path in sorted(set(known) - set(present)):
+                record = known[rel_path]
+                retrieved_at = utcnow_iso()
+                if os.path.lexists(root / rel_path):
+                    self._record_marker(
+                        conn,
+                        record,
+                        run_id,
+                        retrieved_at,
+                        "error",
+                        {"reason": "ERR_SOURCE_BOUNDARY"},
+                    )
+                    note(rel_path, "error")
+                else:
+                    self._record_marker(
+                        conn,
+                        record,
+                        run_id,
+                        retrieved_at,
+                        "deleted",
+                        {"reason": "absent_from_root"},
+                    )
+                    note(rel_path, "deleted")
+
+            finished_at = utcnow_iso()
+            self.storage.finish_refresh_run(run_id, outcomes, finished_at, conn=conn)
+            if self.ledger is not None:
+                self.ledger.append(
+                    "corpus.refresh",
+                    {
+                        "refresh_run_id": run_id,
+                        "root_path": root_str,
+                        "outcome_counts": outcomes,
+                        "sources": per_source,
+                    },
+                    conn=conn,
+                )
+
+        return {
+            "schema_version": "1.0",
+            "refresh_run_id": run_id,
+            "root_path": root_str,
+            "started_at": started_at,
+            "finished_at": finished_at,
+            "outcome_counts": outcomes,
+            "sources": per_source,
+        }

@@ -14,6 +14,27 @@ DEFAULT_DATA_DIR = Path.home() / ".adaptive-syllabus"
 DEFAULT_DB_PATH = DEFAULT_DATA_DIR / "adaptive_syllabus.db"
 DEFAULT_PROFILE_PATH = DEFAULT_DATA_DIR / "profile.json"
 
+# Live-source refresh (#54, MTR-018): default per-source freshness bound.
+# A source whose last good retrieval is older than its bound reads `stale`.
+DEFAULT_MAX_AGE_HOURS = 168  # 7 days
+
+# Outcomes `corpus refresh` records, one per source per run (plan step 4).
+REFRESH_OUTCOMES = (
+    "ok",
+    "unchanged",
+    "changed",
+    "timeout",
+    "rate_limited",
+    "revoked",
+    "deleted",
+    "error",
+)
+# Outcomes that carry readable bytes (a content version, not a marker).
+REFRESH_CONTENT_OUTCOMES = ("ok", "unchanged", "changed")
+# Outcomes whose latest observation means "last good version still usable,
+# but marked failed" (plan step 6).
+REFRESH_FAILED_OUTCOMES = ("timeout", "rate_limited", "error")
+
 
 def utcnow_iso() -> str:
     """UTC timestamp in ISO-8601 format."""
@@ -129,6 +150,44 @@ class Storage:
             event_count INTEGER NOT NULL,
             head_hash TEXT NOT NULL,
             created_at TEXT NOT NULL)""")
+
+        # Live-source refresh (#54, MTR-018). `source_records` is the stable
+        # identity of a source across snapshots (one row per root + rel path);
+        # `source_versions` is the append-only observation history for that
+        # source — one row per content version plus one marker row per
+        # failure / deletion / revocation observation (sha256 NULL there:
+        # the bytes were not read, or the file was gone). `refresh_runs`
+        # records one row per `corpus refresh` invocation with its outcome
+        # counts. A refresh never rewrites snapshots or document rows.
+        conn.execute("""CREATE TABLE IF NOT EXISTS source_records (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            root_path TEXT NOT NULL,
+            rel_path TEXT NOT NULL,
+            max_age_hours INTEGER NOT NULL,
+            created_at TEXT NOT NULL,
+            UNIQUE(root_path, rel_path))""")
+        conn.execute(
+            "CREATE INDEX IF NOT EXISTS idx_source_records_root ON source_records(root_path)"
+        )
+        conn.execute("""CREATE TABLE IF NOT EXISTS source_versions (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            source_id INTEGER NOT NULL REFERENCES source_records(id) ON DELETE CASCADE,
+            sha256 TEXT,
+            source_version TEXT NOT NULL,
+            retrieved_at TEXT NOT NULL,
+            outcome TEXT NOT NULL,
+            detail_json TEXT NOT NULL,
+            snapshot_id INTEGER REFERENCES snapshots(id) ON DELETE SET NULL)""")
+        conn.execute(
+            "CREATE INDEX IF NOT EXISTS idx_source_versions_source_id "
+            "ON source_versions(source_id)"
+        )
+        conn.execute("""CREATE TABLE IF NOT EXISTS refresh_runs (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            root_path TEXT NOT NULL,
+            started_at TEXT NOT NULL,
+            finished_at TEXT,
+            outcome_counts_json TEXT NOT NULL)""")
         self._backfill_snapshot_bindings(conn)
 
     def initialize_schema(self) -> None:
@@ -507,6 +566,16 @@ class Storage:
                 ).fetchall()
 
             ledger_events = int(conn.execute("SELECT COUNT(*) FROM ledger_events").fetchone()[0])
+            # Live-source refresh (#54): per-source freshness for the selected
+            # snapshot's documents. Imported here so storage stays importable
+            # without the freshness module (it only type-checks Storage).
+            source_freshness = None
+            if selected is not None:
+                from .freshness import summarize_snapshot_freshness
+
+                source_freshness = summarize_snapshot_freshness(
+                    self, snapshot_id=selected_id, conn=conn
+                )
 
         family_breakdown = {str(row["family"]): int(row["n"]) for row in by_family_rows}
         return {
@@ -520,6 +589,7 @@ class Storage:
             "total_bytes": total_bytes,
             "family_breakdown": family_breakdown,
             "ledger_event_count": ledger_events,
+            "source_freshness": source_freshness,
         }
 
     def list_documents(
@@ -922,3 +992,257 @@ class Storage:
                     (selector,),
                 )
             ]
+
+    # -- Live-source refresh (#54, MTR-018) ---------------------------------
+
+    def find_source_record(
+        self,
+        root_path: str,
+        rel_path: str,
+        *,
+        conn: sqlite3.Connection | None = None,
+    ) -> dict[str, Any] | None:
+        """The stable identity row for one source, or None (never refreshed)."""
+        if conn is None:
+            with self.connection() as db_conn:
+                return self.find_source_record(root_path, rel_path, conn=db_conn)
+        row = conn.execute(
+            "SELECT * FROM source_records WHERE root_path = ? AND rel_path = ?",
+            (root_path, rel_path),
+        ).fetchone()
+        return dict(row) if row else None
+
+    def get_or_create_source_record(
+        self,
+        root_path: str,
+        rel_path: str,
+        max_age_hours: int = DEFAULT_MAX_AGE_HOURS,
+        *,
+        conn: sqlite3.Connection | None = None,
+    ) -> dict[str, Any]:
+        """Create the identity row on first sight; never reset an existing bound."""
+        existing = self.find_source_record(root_path, rel_path, conn=conn)
+        if existing is not None:
+            return existing
+        if conn is None:
+            with self.connection() as db_conn:
+                return self.get_or_create_source_record(
+                    root_path, rel_path, max_age_hours, conn=db_conn
+                )
+        cur = conn.execute(
+            """
+            INSERT INTO source_records(root_path, rel_path, max_age_hours, created_at)
+            VALUES (?, ?, ?, ?)
+            """,
+            (root_path, rel_path, max_age_hours, utcnow_iso()),
+        )
+        record_id = self._cursor_lastrowid(cur)
+        row = conn.execute(
+            "SELECT * FROM source_records WHERE id = ?", (record_id,)
+        ).fetchone()
+        return dict(row)
+
+    def set_source_max_age(
+        self,
+        source_id: int,
+        max_age_hours: int,
+        *,
+        conn: sqlite3.Connection | None = None,
+    ) -> None:
+        """Set one source's freshness bound (operator decision, per source)."""
+        if max_age_hours <= 0:
+            raise ValueError("max_age_hours must be positive")
+        if conn is None:
+            with self.connection() as db_conn:
+                self.set_source_max_age(source_id, max_age_hours, conn=db_conn)
+                return
+        conn.execute(
+            "UPDATE source_records SET max_age_hours = ? WHERE id = ?",
+            (max_age_hours, source_id),
+        )
+
+    def insert_source_version(
+        self,
+        source_id: int,
+        sha256: str | None,
+        source_version: str,
+        retrieved_at: str,
+        outcome: str,
+        detail: dict[str, Any],
+        snapshot_id: int | None = None,
+        *,
+        conn: sqlite3.Connection | None = None,
+    ) -> int:
+        """Append one refresh observation (content version or marker row)."""
+        if outcome not in REFRESH_OUTCOMES:
+            raise ValueError(f"Unknown refresh outcome: {outcome}")
+        if conn is None:
+            with self.connection() as db_conn:
+                return self.insert_source_version(
+                    source_id,
+                    sha256,
+                    source_version,
+                    retrieved_at,
+                    outcome,
+                    detail,
+                    snapshot_id,
+                    conn=db_conn,
+                )
+        cur = conn.execute(
+            """
+            INSERT INTO source_versions(
+                source_id, sha256, source_version, retrieved_at, outcome, detail_json,
+                snapshot_id
+            )
+            VALUES (?, ?, ?, ?, ?, ?, ?)
+            """,
+            (source_id, sha256, source_version, retrieved_at, outcome,
+             json.dumps(detail, sort_keys=True), snapshot_id),
+        )
+        return self._cursor_lastrowid(cur)
+
+    def latest_source_version(
+        self,
+        source_id: int,
+        *,
+        conn: sqlite3.Connection | None = None,
+    ) -> dict[str, Any] | None:
+        """The newest observation for a source, content version or marker."""
+        if conn is None:
+            with self.connection() as db_conn:
+                return self.latest_source_version(source_id, conn=db_conn)
+        row = conn.execute(
+            "SELECT * FROM source_versions WHERE source_id = ? ORDER BY id DESC LIMIT 1",
+            (source_id,),
+        ).fetchone()
+        if row is None:
+            return None
+        result = dict(row)
+        result["detail"] = json.loads(str(row["detail_json"]))
+        return result
+
+    def latest_content_version(
+        self,
+        source_id: int,
+        *,
+        conn: sqlite3.Connection | None = None,
+    ) -> dict[str, Any] | None:
+        """The newest observation that carried readable bytes (the last good)."""
+        if conn is None:
+            with self.connection() as db_conn:
+                return self.latest_content_version(source_id, conn=db_conn)
+        placeholders = ",".join("?" for _ in REFRESH_CONTENT_OUTCOMES)
+        row = conn.execute(
+            f"SELECT * FROM source_versions WHERE source_id = ? "
+            f"AND outcome IN ({placeholders}) ORDER BY id DESC LIMIT 1",
+            (source_id, *REFRESH_CONTENT_OUTCOMES),
+        ).fetchone()
+        if row is None:
+            return None
+        result = dict(row)
+        result["detail"] = json.loads(str(row["detail_json"]))
+        return result
+
+    def touch_source_version(
+        self,
+        version_id: int,
+        retrieved_at: str,
+        *,
+        conn: sqlite3.Connection | None = None,
+    ) -> None:
+        """Advance a content version's confirmation time without a new row.
+
+        Idempotent replay (#54 step 3): same bytes, no new version — but the
+        re-read confirms the bytes now, so the recorded retrieval time moves
+        and the source does not false-positive stale.
+        """
+        if conn is None:
+            with self.connection() as db_conn:
+                self.touch_source_version(version_id, retrieved_at, conn=db_conn)
+                return
+        conn.execute(
+            "UPDATE source_versions SET retrieved_at = ? WHERE id = ?",
+            (retrieved_at, version_id),
+        )
+
+    def list_source_records(
+        self,
+        root_path: str | None = None,
+        *,
+        conn: sqlite3.Connection | None = None,
+    ) -> list[dict[str, Any]]:
+        """All source identity rows, optionally scoped to one ingest root."""
+        if conn is None:
+            with self.connection() as db_conn:
+                return self.list_source_records(root_path, conn=db_conn)
+        if root_path is None:
+            rows = conn.execute("SELECT * FROM source_records ORDER BY root_path, rel_path")
+        else:
+            rows = conn.execute(
+                "SELECT * FROM source_records WHERE root_path = ? ORDER BY rel_path",
+                (root_path,),
+            )
+        return [dict(row) for row in rows.fetchall()]
+
+    def list_snapshot_source_keys(
+        self,
+        snapshot_id: int,
+        *,
+        conn: sqlite3.Connection | None = None,
+    ) -> list[dict[str, Any]]:
+        """One row per document in a snapshot, keyed to its source identity."""
+        if conn is None:
+            with self.connection() as db_conn:
+                return self.list_snapshot_source_keys(snapshot_id, conn=db_conn)
+        rows = conn.execute(
+            """
+            SELECT d.id AS document_id, s.root_path AS root_path,
+                   d.rel_path AS rel_path, d.sha256 AS sha256
+            FROM documents d
+            JOIN snapshots s ON s.id = d.snapshot_id
+            WHERE d.snapshot_id = ?
+            ORDER BY d.rel_path
+            """,
+            (snapshot_id,),
+        ).fetchall()
+        return [dict(row) for row in rows]
+
+    def insert_refresh_run(
+        self,
+        root_path: str,
+        started_at: str,
+        *,
+        conn: sqlite3.Connection | None = None,
+    ) -> int:
+        if conn is None:
+            with self.connection() as db_conn:
+                return self.insert_refresh_run(root_path, started_at, conn=db_conn)
+        cur = conn.execute(
+            """
+            INSERT INTO refresh_runs(root_path, started_at, outcome_counts_json)
+            VALUES (?, ?, ?)
+            """,
+            (root_path, started_at, json.dumps({})),
+        )
+        return self._cursor_lastrowid(cur)
+
+    def finish_refresh_run(
+        self,
+        run_id: int,
+        outcome_counts: dict[str, int],
+        finished_at: str,
+        *,
+        conn: sqlite3.Connection | None = None,
+    ) -> None:
+        if conn is None:
+            with self.connection() as db_conn:
+                self.finish_refresh_run(run_id, outcome_counts, finished_at, conn=db_conn)
+                return
+        conn.execute(
+            """
+            UPDATE refresh_runs
+            SET finished_at = ?, outcome_counts_json = ?
+            WHERE id = ?
+            """,
+            (finished_at, json.dumps(outcome_counts, sort_keys=True), run_id),
+        )

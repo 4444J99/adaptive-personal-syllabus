@@ -11,7 +11,7 @@ from typing import Any
 import click
 
 from . import __version__
-from .corpus import CorpusIngestor
+from .corpus import CorpusIngestor, CorpusRefresher
 from .docs_audit import (
     DocsAuditService,
     build_milestone_execution_plan,
@@ -19,6 +19,7 @@ from .docs_audit import (
     render_milestone_execution_markdown,
     write_report,
 )
+from .freshness import source_freshness
 from .generator import SyllabusGenerator
 from .hooks import HookRunner
 from .ledger import Ledger
@@ -147,6 +148,40 @@ def corpus_ingest(root: Path, snapshot: str, db_path: Path) -> None:
             indent=2,
         )
     )
+
+
+@corpus.command("refresh")
+@click.option(
+    "--root",
+    required=True,
+    type=click.Path(path_type=Path, exists=True, file_okay=False, dir_okay=True),
+    help="Root directory to re-read (the first source: the local ingest root).",
+)
+@click.option(
+    "--max-age-hours",
+    type=int,
+    default=None,
+    help="Per-source freshness bound in hours for the sources this run touches "
+    "(new sources default to 168).",
+)
+@click.option(
+    "--db-path",
+    type=click.Path(path_type=Path),
+    default=str(DEFAULT_DB_PATH),
+    show_default=True,
+)
+def corpus_refresh(root: Path, max_age_hours: int | None, db_path: Path) -> None:
+    """Re-read live sources and record one outcome per source.
+
+    Operator-triggered; a scheduled invocation is the scheduled form.
+    A refresh records versions and outcomes — it never creates a snapshot
+    or rewrites stored documents. See docs/implementation/live-source-refresh.md.
+    """
+    storage = Storage(db_path)
+    chain = Ledger(storage)
+    refresher = CorpusRefresher(storage, chain)
+    summary = refresher.refresh(root=root, max_age_hours=max_age_hours)
+    click.echo(json.dumps(summary, indent=2))
 
 
 @corpus.command("stats")
@@ -629,9 +664,20 @@ def authorize_publication(
 @click.option("--db-path", type=click.Path(path_type=Path), default=str(DEFAULT_DB_PATH))
 def corpus_passage(document_id: int, chunk_index: int, db_path: Path) -> None:
     """Display exact stored passage as data, never executable instructions."""
-    passage = Storage(db_path).get_passage(document_id, chunk_index)
+    storage = Storage(db_path)
+    passage = storage.get_passage(document_id, chunk_index)
     if passage is None:
         raise click.ClickException("Unavailable or uninspected passage")
+    # Live-source refresh (#54): the passage carries its source's freshness
+    # state, so a stale passage is never silently presented as current.
+    snapshot = storage.get_snapshot(int(passage["snapshot_id"]))
+    if snapshot is not None:
+        passage["freshness"] = source_freshness(
+            storage,
+            root_path=str(snapshot["root_path"]),
+            rel_path=str(passage["rel_path"]),
+            document_sha256=str(passage["sha256"]),
+        )
     click.echo(json.dumps(passage, indent=2))
 
 

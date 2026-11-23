@@ -4,18 +4,18 @@
   "verification_status": "unverified",
   "unmatched_implementation_claims": {},
   "rejected_verifications": [],
-  "generated_at": "2026-11-22T23:31:48+00:00",
+  "generated_at": "2026-11-23T01:42:46+00:00",
   "root_path": "docs",
   "snapshot": {
-    "snapshot_id": 2,
+    "snapshot_id": 1,
     "snapshot_name": "docs-full-audit",
-    "doc_count": 98,
-    "unique_payload_count": 60,
-    "created_at": "2026-11-22T23:31:48+00:00"
+    "doc_count": 99,
+    "unique_payload_count": 61,
+    "created_at": "2026-11-23T01:42:46+00:00"
   },
   "ingest_verification": {
-    "expected_file_count": 98,
-    "snapshot_doc_count": 98,
+    "expected_file_count": 99,
+    "snapshot_doc_count": 99,
     "all_files_ingested": true
   },
   "files": [
@@ -270,8 +270,8 @@
     {
       "rel_path": "claims/leases.yaml",
       "canonical_rel_path": "claims/leases.yaml",
-      "sha256": "e5a91adb405465e71d785dad1e7c61a9b3c6ca76ce53b7d315f87defba805c00",
-      "size_bytes": 5416,
+      "sha256": "743a7b53f74222f688f62b5300dbb8110303402c080b9c67d0c31895387d7e1e",
+      "size_bytes": 6313,
       "extension": ".yaml",
       "is_duplicate_payload": false
     },
@@ -304,6 +304,14 @@
       "canonical_rel_path": "implementation/learning-plan-integrity-v2.md",
       "sha256": "bc05e4b0b2a099e9ab9f6aaa4c4c9e17e4431a9331f5c3330209d0609de0109a",
       "size_bytes": 5749,
+      "extension": ".md",
+      "is_duplicate_payload": false
+    },
+    {
+      "rel_path": "implementation/live-source-refresh.md",
+      "canonical_rel_path": "implementation/live-source-refresh.md",
+      "sha256": "6c127738d2af83d9f1aabf49cbb7dd56ce1f1bec87e844fbf9b32958add4a127",
+      "size_bytes": 5975,
       "extension": ".md",
       "is_duplicate_payload": false
     },

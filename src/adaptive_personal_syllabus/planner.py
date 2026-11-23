@@ -10,6 +10,7 @@ from pathlib import Path
 from typing import Any
 
 from .encounter import adapt_encounter
+from .freshness import EXCLUDED_STATES, summarize_snapshot_freshness
 from .generator import SyllabusGenerator
 from .ledger import Ledger
 from .models import DifficultyLevel, LearnerProfile, PersonalizationRule
@@ -225,6 +226,37 @@ class Planner:
             (chunk, _tokens(chunk["heading_path"], chunk["text"]))
             for chunk in self.storage.list_document_chunks(snapshot_id=snapshot_id)
         ]
+        # Live-source refresh (#54): freshness is time-varying observation,
+        # so it never enters the plan fingerprint — but selection must not
+        # draw on sources the last refresh found missing or revoked, and
+        # the plan must say when it was built from a stale snapshot. The
+        # exclusion changes the candidate list (and therefore the plan);
+        # the per-source states live in the top-level `source_freshness`
+        # block added after the fingerprint, alongside the snapshot block.
+        freshness = summarize_snapshot_freshness(self.storage, snapshot_id=snapshot_id)
+        fresh_by_doc = {
+            int(item["document_id"]): item for item in freshness["sources"]
+        }
+        excluded_sources: list[dict[str, Any]] = []
+        excluded_doc_ids: set[int] = set()
+        usable_chunks = []
+        for chunk, tokens in chunks:
+            doc_id = int(chunk["document_id"])
+            state = fresh_by_doc.get(doc_id, {}).get("state", "unknown")
+            if state in EXCLUDED_STATES:
+                if doc_id not in excluded_doc_ids:
+                    excluded_doc_ids.add(doc_id)
+                    excluded_sources.append(
+                        {
+                            "document_id": doc_id,
+                            "rel_path": str(chunk["rel_path"]),
+                            "state": str(state),
+                            "reason": str(fresh_by_doc[doc_id].get("reason")),
+                        }
+                    )
+                continue
+            usable_chunks.append((chunk, tokens))
+        chunks = usable_chunks
         for row in module_rows:
             row["adaptation"], row["encounter"] = adapt_encounter(profile_data, row)
             row["source_selection"] = {
@@ -247,6 +279,27 @@ class Planner:
         )
 
         plan_uid = full_digest[:12]
+        # Freshness of the sources this plan actually drew on, plus the
+        # snapshot-wide counts. Added after the fingerprint on purpose:
+        # freshness is a time-varying observation, not plan content, and
+        # must not make the fingerprint drift with the clock. A plan built
+        # from a stale snapshot says so here (`stale_snapshot: true`) and
+        # names the excluded sources, so stale passages are never silently
+        # presented as current.
+        candidate_doc_ids = {
+            int(candidate["document_id"])
+            for row in module_rows
+            for candidate in row["source_selection"]["candidates"]
+        }
+        plan_freshness = {
+            "snapshot_id": snapshot_id,
+            "stale_snapshot": bool(freshness["stale_snapshot"]),
+            "summary": freshness["summary"],
+            "excluded_sources": excluded_sources,
+            "sources": [
+                item for item in freshness["sources"] if int(item["document_id"]) in candidate_doc_ids
+            ],
+        }
         plan: dict[str, Any] = {
             "schema_version": "2.0",
             "plan_id": plan_uid,
@@ -262,6 +315,7 @@ class Planner:
                 "completed_modules": learner.completed_modules,
             },
             "snapshot": snapshot,
+            "source_freshness": plan_freshness,
             "determinism_inputs": {
                 "fingerprint_schema_version": FINGERPRINT_SCHEMA_VERSION,
                 "snapshot_id": snapshot_id,

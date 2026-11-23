@@ -38,9 +38,10 @@ Verified at main `524f57ab` (2026-11-22): every remote branch is accounted for i
 | #43 (MTR-012) | work/mentor/repository-layout (proposed, not yet created) | `019dfc70` (plan base; refresh at build time) | main | Planned; branch named in the #43 plan, not yet created |
 | #44 (MTR-013) | no branch yet — unclaimed | — | main | Unclaimed; #45/#46/#47 chain-gated on #44's decision |
 | #45, #46, #47 (MTR-014/015/016) | no branch yet — unclaimed | — | main | Unclaimed; chain-gated on #44 |
-| #48–#69 (MTR-017–MTR-038, except #50/#68) | no branch yet — unclaimed | — | main | Unclaimed (planned) |
+| #48–#69 (MTR-017–MTR-038, except #50/#52/#54/#68) | no branch yet — unclaimed | — | main | Unclaimed (planned) |
 | #50 (MTR-020), #68 (MTR-037) | no branch yet — unclaimed | — | main | Unclaimed (planned; plans name no branch) |
-| #52 (MTR-022) | work/mentor/ledger-consistency | `96459abc` | main | In progress (this PR). Plan posted on #52 (comment 6968951490); ledger checkpoint + atomic plan-generate; corpus ingest already atomic at this head (verified, no change); docs.audit / artifact appends named-why, not re-transactioned |
+| #52 (MTR-022) | work/mentor/ledger-consistency | `96459abc` | main | Merged via PR #91 (`8f9685c5`); ledger checkpoint + atomic plan-generate; corpus ingest already atomic at this head (verified, no change); docs.audit / artifact appends named-why, not re-transactioned |
+| #54 (MTR-018) | work/mentor/live-source-loop | `8f9685c5` (base refreshed at PR time: PR #91 merged first) | main | In progress (this PR); live-source refresh loop |
 | — (no owning issue recorded) | fix/ledger-malformed-payload-integrity-failure-14391782578113217034 | `dc0341d` | main | Merged via PR #74 (`cc39b56`); branch content verified identical on main (2/2 files) |
 | — (no owning issue recorded) | chore/pin-runner-ubuntu-2404-20261012 | `a7c20a1` | main | Merged via PR #75 (`5659bee4`, runner pin, Anthony-approved Oct 12); the follow-up ruff `--fix` hunks are superseded by later main work |
 | — (no owning issue recorded) | chore/remove-third-party-transcript | `75f700e` | main | Merged via PR #76 (`3ba1c28`); the committed runtime `.db` blob exists only on the branch and must not be merged |
