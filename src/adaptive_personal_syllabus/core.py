@@ -11,6 +11,11 @@ from typing import Any
 import click
 
 from . import __version__
+from .admission import (
+    admission_for_document,
+    validate_admission_record,
+    validate_revocation_record,
+)
 from .corpus import CorpusIngestor, CorpusRefresher
 from .docs_audit import (
     DocsAuditService,
@@ -665,9 +670,40 @@ def authorize_publication(
 def corpus_passage(document_id: int, chunk_index: int, db_path: Path) -> None:
     """Display exact stored passage as data, never executable instructions."""
     storage = Storage(db_path)
+    doc = storage.get_document(document_id)
+    if doc is None:
+        raise click.ClickException("Unavailable or uninspected passage")
+    state = admission_for_document(storage, document_id)
+    # Source admission (#48 step 7): a `private`-access source's paths
+    # and contents never leave the store, whatever the command.
+    if state["access"] == "private":
+        raise click.ClickException("Private source: passage withheld")
+    if state["content_kind"] in ("metadata_only", "extraction_failed"):
+        # No passage text exists for this document; report the kind
+        # instead of erroring on a missing chunk (#48 step 3).
+        click.echo(
+            json.dumps(
+                {
+                    "document_id": document_id,
+                    "snapshot_id": int(doc["snapshot_id"]),
+                    "sha256": str(doc["sha256"]),
+                    "rel_path": str(doc["rel_path"]),
+                    "content_kind": state["content_kind"],
+                    "text": None,
+                    "chunk_index": None,
+                    "heading_path": None,
+                    "aliases": [],
+                    "document_completeness": state["content_kind"],
+                    "admission_status": state["status"],
+                },
+                indent=2,
+            )
+        )
+        return
     passage = storage.get_passage(document_id, chunk_index)
     if passage is None:
         raise click.ClickException("Unavailable or uninspected passage")
+    passage["admission_status"] = state["status"]
     # Live-source refresh (#54): the passage carries its source's freshness
     # state, so a stale passage is never silently presented as current.
     snapshot = storage.get_snapshot(int(passage["snapshot_id"]))
@@ -679,6 +715,52 @@ def corpus_passage(document_id: int, chunk_index: int, db_path: Path) -> None:
             document_sha256=str(passage["sha256"]),
         )
     click.echo(json.dumps(passage, indent=2))
+
+
+@corpus.command("admit")
+@click.argument("record_path", type=click.Path(path_type=Path, exists=True, dir_okay=False))
+@click.option("--db-path", type=click.Path(path_type=Path), default=str(DEFAULT_DB_PATH))
+def corpus_admit(record_path: Path, db_path: Path) -> None:
+    """Record an attributed source-admission decision; never infer admission from retrieval.
+
+    The record JSON carries document_id, the document row's exact sha256,
+    owner, license, access (public/restricted/private), provenance,
+    admitted_by, admission_basis, reviewer and reviewed_at — mirroring
+    `corpus judge`'s attributed pattern. Admission binds to exact bytes:
+    a sha mismatch is an error, never a silent carry-over.
+    """
+    storage = Storage(db_path)
+    try:
+        record = json.loads(record_path.read_text())
+        if not isinstance(record, dict):
+            raise ValueError("Admission record must be an object")  # noqa: TRY004
+        normalized = validate_admission_record(storage, record)
+        identifier = storage.record_source_admission(normalized)
+    except (ValueError, KeyError, TypeError) as exc:
+        raise click.ClickException(str(exc)) from exc
+    click.echo(json.dumps({"admission_id": identifier, "record": normalized}))
+
+
+@corpus.command("revoke")
+@click.argument("record_path", type=click.Path(path_type=Path, exists=True, dir_okay=False))
+@click.option("--db-path", type=click.Path(path_type=Path), default=str(DEFAULT_DB_PATH))
+def corpus_revoke(record_path: Path, db_path: Path) -> None:
+    """Record an attributed revocation; revoked sources leave planner candidates and support.
+
+    The record JSON carries document_id, the document row's exact sha256,
+    revoked_by and revocation_reason (reviewed_at optional). A later admit
+    re-admits the source; revocation is a decision, not a deletion.
+    """
+    storage = Storage(db_path)
+    try:
+        record = json.loads(record_path.read_text())
+        if not isinstance(record, dict):
+            raise ValueError("Revocation record must be an object")  # noqa: TRY004
+        normalized = validate_revocation_record(storage, record)
+        identifier = storage.record_source_admission(normalized)
+    except (ValueError, KeyError, TypeError) as exc:
+        raise click.ClickException(str(exc)) from exc
+    click.echo(json.dumps({"admission_id": identifier, "record": normalized}))
 
 
 @corpus.command("judge")
@@ -714,20 +796,44 @@ def corpus_judge(record_path: Path, human_reviewed: bool, db_path: Path) -> None
 def corpus_support(
     document_id: int | None, snapshot_id: int | None, claim: str, db_path: Path
 ) -> None:
-    """Inspect all judgments for an exact claim, retaining contradictions."""
+    """Inspect all judgments for an exact claim, retaining contradictions.
+
+    A `private`-access source's judgments are withheld (document mode
+    refuses; snapshot mode drops them and reports the count), and a
+    revoked source leaves the support path entirely (#48 steps 4/7).
+    """
     from .support import summarize_judgments
 
     if (document_id is None) == (snapshot_id is None):
         raise click.ClickException("Choose one document ID or --snapshot-id")
-    click.echo(
-        json.dumps(
-            summarize_judgments(
-                Storage(db_path).list_source_judgments(document_id, snapshot_id=snapshot_id),
-                claim,
-            ),
-            indent=2,
-        )
-    )
+    storage = Storage(db_path)
+    private_documents_excluded = 0
+    try:
+        if document_id is not None:
+            state = admission_for_document(storage, document_id)
+            if state["access"] == "private":
+                raise click.ClickException("Private source: support withheld")
+            if state["status"] == "revoked":
+                raise click.ClickException("Source revoked: support withheld")
+        records = storage.list_source_judgments(document_id, snapshot_id=snapshot_id)
+    except ValueError as exc:
+        raise click.ClickException(str(exc)) from exc
+    if snapshot_id is not None:
+        kept: list[dict[str, Any]] = []
+        seen_private: set[int] = set()
+        for record in records:
+            state = admission_for_document(storage, int(record["document_id"]))
+            if state["access"] == "private":
+                if int(record["document_id"]) not in seen_private:
+                    seen_private.add(int(record["document_id"]))
+                    private_documents_excluded += 1
+                continue
+            kept.append(record)
+        records = kept
+    summary = summarize_judgments(records, claim)
+    if snapshot_id is not None:
+        summary["private_documents_excluded"] = private_documents_excluded
+    click.echo(json.dumps(summary, indent=2))
 
 
 @cli.group()

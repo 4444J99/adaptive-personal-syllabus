@@ -38,7 +38,8 @@ Verified at main `524f57ab` (2026-11-22): every remote branch is accounted for i
 | #43 (MTR-012) | work/mentor/repository-layout (proposed, not yet created) | `019dfc70` (plan base; refresh at build time) | main | Planned; branch named in the #43 plan, not yet created |
 | #44 (MTR-013) | no branch yet — unclaimed | — | main | Unclaimed; #45/#46/#47 chain-gated on #44's decision |
 | #45, #46, #47 (MTR-014/015/016) | no branch yet — unclaimed | — | main | Unclaimed; chain-gated on #44 |
-| #48–#69 (MTR-017–MTR-038, except #50/#52/#54/#68) | no branch yet — unclaimed | — | main | Unclaimed (planned) |
+| #48 (MTR-017) | work/mentor/source-admission | `8ee1538f` | main | In progress (this PR); source admission record |
+| #49–#69 (MTR-019–MTR-038, except #50/#52/#54/#68) | no branch yet — unclaimed | — | main | Unclaimed (planned) |
 | #50 (MTR-020), #68 (MTR-037) | no branch yet — unclaimed | — | main | Unclaimed (planned; plans name no branch) |
 | #52 (MTR-022) | work/mentor/ledger-consistency | `96459abc` | main | Merged via PR #91 (`8f9685c5`); ledger checkpoint + atomic plan-generate; corpus ingest already atomic at this head (verified, no change); docs.audit / artifact appends named-why, not re-transactioned |
 | #54 (MTR-018) | work/mentor/live-source-loop | `8f9685c5` (base refreshed at PR time: PR #91 merged first) | main | In progress (this PR); live-source refresh loop |

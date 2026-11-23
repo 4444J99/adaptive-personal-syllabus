@@ -14,6 +14,7 @@ from adaptive_personal_syllabus.ledger import Ledger
 from adaptive_personal_syllabus.planner import Planner
 from adaptive_personal_syllabus.storage import Storage
 from adaptive_personal_syllabus.support import summarize_judgments
+from tests.admission_helpers import admit_all_documents
 from tests.test_planner import _profile, _seed_dir
 
 
@@ -325,6 +326,8 @@ def test_source_identity_aliases_malicious_binary_and_missing(setup, tmp_path, m
     (root / "binary.pdf").write_bytes(b"%PDF-1.4 uninspected")
     (root / "irrelevant.md").write_text("what how core idea build cooking pasta")
     snapshot = CorpusIngestor(storage, Ledger(storage)).ingest(root, "sources")
+    # Source admission (#48): only admitted documents become candidates.
+    admit_all_documents(storage, snapshot.snapshot_id)
     count = 0
     original = storage.list_document_chunks
 
@@ -344,7 +347,7 @@ def test_source_identity_aliases_malicious_binary_and_missing(setup, tmp_path, m
         chunk = storage.get_passage(c["document_id"], int(c["locator"].split(":")[1]))
         assert chunk["snapshot_id"] == snapshot.snapshot_id
         assert chunk["sha256"] == c["sha256"]
-        assert c["document_completeness"] == "not_established"
+        assert c["document_completeness"] == "complete"
     assert any(storage.get_passage(c["document_id"], 0)["aliases"] for c in candidates)
     assert storage.get_passage(999999, 0) is None
     assert plan["output_policy"]["publication_authorized"] is False
@@ -364,6 +367,11 @@ def test_irrelevant_only_empty_candidates(setup, tmp_path):
 
 def test_judgment_inspection_and_contradiction(setup, tmp_path):
     storage, planner = setup
+    # Source admission (#48): the fixture document must be admitted
+    # before it can appear as a plan candidate.
+    latest = storage.latest_snapshot()
+    assert latest is not None
+    admit_all_documents(storage, int(latest["id"]))
     plan = planner.generate(_profile(tmp_path))
     c = plan["modules"][0]["source_selection"]["candidates"][0]
     record = {

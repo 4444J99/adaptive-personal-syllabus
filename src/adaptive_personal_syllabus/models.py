@@ -85,6 +85,9 @@ class DocumentRecord:
     mime: str
     family: str
     ingested_at: str
+    # Source admission (#48 step 3): `passage` (decoded text exists),
+    # `metadata_only` (binary intake, no extraction), `extraction_failed`.
+    content_kind: str = "passage"
 
 
 @dataclass

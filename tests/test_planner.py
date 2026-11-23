@@ -9,6 +9,7 @@ from adaptive_personal_syllabus.corpus import CorpusIngestor
 from adaptive_personal_syllabus.ledger import Ledger
 from adaptive_personal_syllabus.planner import Planner
 from adaptive_personal_syllabus.storage import Storage
+from tests.admission_helpers import admit_all_documents
 
 
 def _seed_dir(base: Path) -> Path:
@@ -137,11 +138,16 @@ def test_source_selection_is_relevant_but_never_claimed_as_support(tmp_path: Pat
     corpus_root.mkdir()
     (corpus_root / "relevant.md").write_text("# Foundations\nrecursive foundations", encoding="utf-8")
     (corpus_root / "irrelevant.md").write_text("# Cooking\nboil pasta", encoding="utf-8")
-    CorpusIngestor(storage, ledger).ingest(corpus_root, "snapshot-a")
+    snapshot = CorpusIngestor(storage, ledger).ingest(corpus_root, "snapshot-a")
+    # Source admission (#48): only admitted documents become candidates.
+    admit_all_documents(storage, snapshot.snapshot_id)
     plan = Planner(storage=storage, ledger=ledger, seed_dir=_seed_dir(tmp_path)).generate(_profile(tmp_path))
     candidates = plan["modules"][0]["source_selection"]["candidates"]
     assert [candidate["rel_path"] for candidate in candidates] == ["relevant.md"]
     assert all(candidate["source_support"] == "source_support_unverified" for candidate in candidates)
+    assert all(candidate["admission_status"] == "admitted" for candidate in candidates)
+    assert all(candidate["content_kind"] == "passage" for candidate in candidates)
+    assert all(candidate["document_completeness"] == "complete" for candidate in candidates)
 
 
 def test_adaptation_changes_only_for_relevant_profile_fields(tmp_path: Path) -> None:
