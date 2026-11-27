@@ -15,6 +15,7 @@ import yaml
 from .corpus import TEXT_EXTENSIONS, CorpusIngestor, _read_admitted_bytes, discover_documents
 from .ledger import Ledger
 from .storage import Storage, utcnow_iso
+from .versions import AUDIT_REPORT_SCHEMA_VERSION, MILESTONE_EXECUTION_PLAN_SCHEMA_VERSION
 
 ACTIONABLE_MARKER = re.compile(r"actionable suggestions?\s*:?", re.IGNORECASE)
 USE_CASE_PATTERN = re.compile(r"\buse[- ]cases?\b", re.IGNORECASE)
@@ -742,7 +743,7 @@ def build_milestone_execution_plan(
         )
 
     return {
-        "schema_version": "1.0",
+        "schema_version": MILESTONE_EXECUTION_PLAN_SCHEMA_VERSION,
         "artifact_kind": "generated-execution-plan",
         "generated_at": utcnow_iso(),
         "milestone": milestone,
@@ -1019,7 +1020,7 @@ class DocsAuditService:
         all_files_ingested = int(snapshot_stats["snapshot"]["doc_count"]) == len(file_manifest)
 
         report = {
-            "schema_version": "2.0",
+            "schema_version": AUDIT_REPORT_SCHEMA_VERSION,
             "artifact_kind": "generated-docs-audit",
             "verification_status": "unverified",
             "unmatched_implementation_claims": {},

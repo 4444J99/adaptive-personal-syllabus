@@ -21,6 +21,7 @@ from .admission import compute_content_kind
 from .ledger import Ledger
 from .models import CorpusSnapshot
 from .storage import DEFAULT_MAX_AGE_HOURS, REFRESH_CONTENT_OUTCOMES, Storage, utcnow_iso
+from .versions import CLI_ENVELOPE_SCHEMA_VERSION
 
 
 class RateLimitError(Exception):
@@ -810,7 +811,7 @@ class CorpusRefresher:
             )
 
         return {
-            "schema_version": "1.0",
+            "schema_version": CLI_ENVELOPE_SCHEMA_VERSION,
             "refresh_run_id": run_id,
             "root_path": root_str,
             "started_at": started_at,

@@ -2,18 +2,18 @@
 # Docs Audit Report
 Discovery only: implementation is unverified; zero verified items is not zero progress.
 
-- Generated at: `2026-11-27T21:49:22+00:00`
+- Generated at: `2026-11-27T23:40:24+00:00`
 - Root: `docs`
 - Snapshot: `docs-full-audit` (id=1)
-- Files discovered: `102`
-- Files ingested: `102`
+- Files discovered: `103`
+- Files ingested: `103`
 - Ingest complete: `True`
 
 ## Suggestions Summary
 
-- Total suggestions: `388`
+- Total suggestions: `389`
 - Implemented: `0`
-- Planned: `388`
+- Planned: `389`
 - Recommended start milestone: `integration-observability-ci`
 
 ## Milestone Ranking
@@ -21,7 +21,7 @@ Discovery only: implementation is unverified; zero verified items is not zero pr
 - `integration-observability-ci` impact=440 (planned=44, implemented=0, completion=unverified)
 - `ui-xr-accessibility` impact=273 (planned=91, implemented=0, completion=unverified)
 - `pedagogy-scaffolding` impact=204 (planned=51, implemented=0, completion=unverified)
-- `general-backlog` impact=161 (planned=161, implemented=0, completion=unverified)
+- `general-backlog` impact=162 (planned=162, implemented=0, completion=unverified)
 - `systems-kernel-runtime` impact=84 (planned=21, implemented=0, completion=unverified)
 - `dsl-neural-symbolic-verification` impact=36 (planned=12, implemented=0, completion=unverified)
 - `wings-community-governance` impact=16 (planned=8, implemented=0, completion=unverified)
@@ -183,6 +183,7 @@ Discovery only: implementation is unverified; zero verified items is not zero pr
 - `feat-c62456d88149` outline tool costs (aiChatsThread/01-onupaway-os-syllabuscritique-grok.md:359)
 - `feat-5fe3fee9b18e` Phase demos (aiChatsThread/01-onupaway-os-syllabuscritique-grok.md:175)
 - `feat-2eb00054e381` Phase implementations (aiChatsThread/01-onupaway-os-syllabuscritique-grok.md:148)
+- `feat-5df510a16c8d` Plan JSON: readers accept every schema version they understand (adr/008-version-compatibility.md:104)
 - `feat-ba6b3de3ae0f` Plan: #21 Phase A (steps 1–6), implementation plan posted on #21 (mentor-roadmap-state.md:13)
 - `feat-e8b294b10d8c` prioritize items with score `>= 7` first, (implementation/milestones/integration-observability-ci.md:29)
 - `feat-909d6e5abc25` provide abstracts for deep dives (aiChatsThread/01-onupaway-os-syllabuscritique-grok.md:355)

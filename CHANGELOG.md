@@ -9,9 +9,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 - `docs/mentor-roadmap-state.md` — Sep 13 baseline → Nov 14 main reconciliation receipt for the #21 control plan: the four-PR merge wave (#70, #71, #72, #20), PR #19 closed unmerged, and a Wave 0 gate table with a verdict per gate at main `019dfc70` (#39 verified and closed; #34, #35, #38 half done with their own build plans; #32 ownerless with its R1–R3 successor plan named)
+- ADR 008 (`docs/adr/008-version-compatibility.md`) — the versioned compatibility promise for #53: one authoritative version (0.6.0, derived from installed package metadata), the contract inventory, SemVer rules for the 0.x line, deprecation window, migration and rollback procedures, and the 1.0 exit gate
+- SQLite schema marker (`schema_meta`, version 1) with a newer-marker guard; a pre-marker database gains the marker on first open with its data intact
+- `src/adaptive_personal_syllabus/versions.py` — one source for every schema-version literal (plan JSON 2.0, CLI envelopes 1.0, profile 1.0, encounter 1.2, audit report 2.0, milestone execution plan 1.0)
+- Migration fixture `tests/fixtures/plan-0.5.0-era.json` plus `tests/test_compatibility.py` (8 tests) proving a 0.5.0-era plan still reads and renders
 
 ### Changed
 - #21's Sep 13 "frozen inventory receipt" is superseded by `docs/mentor-roadmap-state.md` on every count (branches, PR states, CI state, release state)
+- `__version__` is derived from installed distribution metadata (`importlib.metadata`) instead of a second version literal; the literal survives only as a source-checkout fallback pinned to the pyproject version
 
 ## [0.6.0] - 2026-02-24
 

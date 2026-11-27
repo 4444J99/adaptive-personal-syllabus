@@ -31,6 +31,7 @@ from .ledger import Ledger
 from .models import DifficultyLevel, LearnerProfile
 from .planner import WINGS, Planner
 from .storage import DEFAULT_DB_PATH, DEFAULT_PROFILE_PATH, Storage
+from .versions import CLI_ENVELOPE_SCHEMA_VERSION, PROFILE_SCHEMA_VERSION
 
 
 @click.group()
@@ -140,7 +141,7 @@ def corpus_ingest(root: Path, snapshot: str, db_path: Path) -> None:
     click.echo(
         json.dumps(
             {
-                "schema_version": "1.0",
+                "schema_version": CLI_ENVELOPE_SCHEMA_VERSION,
                 "snapshot": {
                     "snapshot_id": snap.snapshot_id,
                     "snapshot_name": snap.snapshot_name,
@@ -246,7 +247,7 @@ def ledger_verify(db_path: Path) -> None:
             "head_hash": str(checkpoint["head_hash"]),
         }
     payload = {
-        "schema_version": "1.0",
+        "schema_version": CLI_ENVELOPE_SCHEMA_VERSION,
         "ok": ok,
         "event_count": event_count,
         "errors": errors,
@@ -323,7 +324,7 @@ def profile_init(
         raise click.ClickException("--context must decode to a JSON object")
 
     profile_doc = {
-        "schema_version": "1.0",
+        "schema_version": PROFILE_SCHEMA_VERSION,
         "name": name,
         "organs_of_interest": [o.strip() for o in organs.split(",") if o.strip()],
         "level": level,
@@ -354,7 +355,7 @@ def profile_init(
 
     click.echo(
         json.dumps(
-            {"schema_version": "1.0", "profile_path": str(output), "profile": profile_doc},
+            {"schema_version": CLI_ENVELOPE_SCHEMA_VERSION, "profile_path": str(output), "profile": profile_doc},
             indent=2,
         )
     )
@@ -897,7 +898,7 @@ def chamber_run(
         raise click.ClickException(str(exc)) from exc
 
     payload = {
-        "schema_version": "1.0",
+        "schema_version": CLI_ENVELOPE_SCHEMA_VERSION,
         "run_id": run_id,
         "hook": result.hook_name,
         "status": result.status,
