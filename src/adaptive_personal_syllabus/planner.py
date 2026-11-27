@@ -17,6 +17,7 @@ from .ledger import Ledger
 from .models import DifficultyLevel, LearnerProfile, PersonalizationRule
 from .storage import Storage
 from .support import summarize_judgments, worst_support_status
+from .versions import PLAN_SCHEMA_VERSION
 
 WINGS: list[dict[str, str]] = [
     {
@@ -402,7 +403,7 @@ class Planner:
             "excluded_sources": excluded_admission,
         }
         plan: dict[str, Any] = {
-            "schema_version": "2.0",
+            "schema_version": PLAN_SCHEMA_VERSION,
             "plan_id": plan_uid,
             "fingerprint_sha256": full_digest,
             "db_plan_id": None,

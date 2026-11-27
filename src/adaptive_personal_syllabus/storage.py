@@ -10,6 +10,12 @@ from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
+from .versions import (
+    CLI_ENVELOPE_SCHEMA_VERSION,
+    DB_SCHEMA_VERSION,
+    LEGACY_PROJECTION_SCHEMA_VERSION,
+)
+
 DEFAULT_DATA_DIR = Path.home() / ".adaptive-syllabus"
 DEFAULT_DB_PATH = DEFAULT_DATA_DIR / "adaptive_syllabus.db"
 DEFAULT_PROFILE_PATH = DEFAULT_DATA_DIR / "profile.json"
@@ -349,9 +355,57 @@ class Storage:
                 );
                 CREATE INDEX IF NOT EXISTS idx_ledger_events_id
                     ON ledger_events(id);
+
+                -- Schema marker (ADR 008, #53): one row naming the store's
+                -- schema version. Databases created before the marker have
+                -- exactly the version-1 shape, so first open stamps 1.
+                CREATE TABLE IF NOT EXISTS schema_meta (
+                    key TEXT PRIMARY KEY,
+                    value TEXT NOT NULL
+                );
                 """
             )
             self._run_migrations(conn)
+            self._ensure_schema_marker(conn)
+
+    def _ensure_schema_marker(self, conn: sqlite3.Connection) -> None:
+        """Stamp a pre-marker database at version 1; refuse a newer one.
+
+        A database whose marker is newer than this code understands was
+        written by a newer release; opening it here could silently corrupt
+        it, so the failure is loud and names both versions (ADR 008).
+        """
+        row = conn.execute(
+            "SELECT value FROM schema_meta WHERE key = 'schema_version'"
+        ).fetchone()
+        if row is None:
+            conn.execute(
+                "INSERT INTO schema_meta(key, value) VALUES ('schema_version', ?)",
+                (str(DB_SCHEMA_VERSION),),
+            )
+            return
+        try:
+            existing = int(str(row[0]))
+        except ValueError:
+            raise ValueError(
+                f"Unrecognized schema_version marker {row[0]!r} in {self.db_path}"
+            ) from None
+        if existing > DB_SCHEMA_VERSION:
+            raise ValueError(
+                f"Database schema version {existing} in {self.db_path} is newer "
+                f"than supported version {DB_SCHEMA_VERSION}; upgrade "
+                "adaptive-personal-syllabus before opening it"
+            )
+
+    def schema_version(self) -> int:
+        """Return the store's stamped schema version (ADR 008, #53)."""
+        with self.connection() as conn:
+            row = conn.execute(
+                "SELECT value FROM schema_meta WHERE key = 'schema_version'"
+            ).fetchone()
+        if row is None:
+            raise ValueError(f"No schema_version marker in {self.db_path}")
+        return int(str(row[0]))
 
     def insert_snapshot(
         self,
@@ -657,7 +711,7 @@ class Storage:
 
         family_breakdown = {str(row["family"]): int(row["n"]) for row in by_family_rows}
         return {
-            "schema_version": "1.0",
+            "schema_version": CLI_ENVELOPE_SCHEMA_VERSION,
             "snapshot_selector": {"snapshot_id": snapshot_id, "snapshot_name": snapshot_name},
             "snapshot": selected,
             "latest_snapshot": latest,
@@ -1005,7 +1059,7 @@ class Storage:
             profile["goals"] = json.loads(profile.pop("goals_json"))
             profile["context"] = json.loads(profile.pop("context_json"))
             return {
-                "schema_version": "legacy_projection",
+                "schema_version": LEGACY_PROJECTION_SCHEMA_VERSION,
                 "db_plan_id": plan_id,
                 "plan_id": None,
                 "fingerprint_sha256": None,

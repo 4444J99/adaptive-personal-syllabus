@@ -4,18 +4,18 @@
   "verification_status": "unverified",
   "unmatched_implementation_claims": {},
   "rejected_verifications": [],
-  "generated_at": "2026-11-27T21:49:22+00:00",
+  "generated_at": "2026-11-27T23:40:24+00:00",
   "root_path": "docs",
   "snapshot": {
     "snapshot_id": 1,
     "snapshot_name": "docs-full-audit",
-    "doc_count": 102,
-    "unique_payload_count": 64,
-    "created_at": "2026-11-27T21:49:22+00:00"
+    "doc_count": 103,
+    "unique_payload_count": 65,
+    "created_at": "2026-11-27T23:40:24+00:00"
   },
   "ingest_verification": {
-    "expected_file_count": 102,
-    "snapshot_doc_count": 102,
+    "expected_file_count": 103,
+    "snapshot_doc_count": 103,
     "all_files_ingested": true
   },
   "files": [
@@ -104,6 +104,14 @@
       "canonical_rel_path": "adr/007-merge-evidence.md",
       "sha256": "ab88a8fd65e8583d3beca1221329aea0adb209b5910d13b5cb3ca67dd3c6aa58",
       "size_bytes": 13595,
+      "extension": ".md",
+      "is_duplicate_payload": false
+    },
+    {
+      "rel_path": "adr/008-version-compatibility.md",
+      "canonical_rel_path": "adr/008-version-compatibility.md",
+      "sha256": "cd6e30f5e1cfa93882b28cfade3264bcbbf05b7187f0f68a03da355dd19f05e1",
+      "size_bytes": 10714,
       "extension": ".md",
       "is_duplicate_payload": false
     },
@@ -270,8 +278,8 @@
     {
       "rel_path": "claims/leases.yaml",
       "canonical_rel_path": "claims/leases.yaml",
-      "sha256": "d7caafedaed9ea26be286a9efdbb4c1600014fc95c42ad5c4860c8768acdf53c",
-      "size_bytes": 8393,
+      "sha256": "1740cd9a5e3283d4026dea4094c088dd42c84836f66b028fc0b6060d85ab55a7",
+      "size_bytes": 9464,
       "extension": ".yaml",
       "is_duplicate_payload": false
     },
@@ -837,9 +845,9 @@
     }
   ],
   "suggestions": {
-    "count": 388,
+    "count": 389,
     "implemented_count": 0,
-    "planned_count": 388,
+    "planned_count": 389,
     "items": [
       {
         "id": "feat-efa712f05280",
@@ -6208,6 +6216,22 @@
         ]
       },
       {
+        "id": "feat-5df510a16c8d",
+        "normalized_text": "plan json readers accept every schema version they understand",
+        "text": "Plan JSON: readers accept every schema version they understand",
+        "status": "planned",
+        "implementation_tags": [],
+        "implementation_claims": [],
+        "verification_status": "unverified",
+        "planned_milestone": "general-backlog",
+        "source_refs": [
+          {
+            "rel_path": "adr/008-version-compatibility.md",
+            "line": 104
+          }
+        ]
+      },
+      {
         "id": "feat-ba6b3de3ae0f",
         "normalized_text": "plan 21 phase a steps 1 6 implementation plan posted on 21",
         "text": "Plan: #21 Phase A (steps 1\u20136), implementation plan posted on #21",
@@ -7366,11 +7390,11 @@
       },
       {
         "milestone_id": "general-backlog",
-        "planned_count": 161,
+        "planned_count": 162,
         "implemented_count": 0,
-        "total_count": 161,
+        "total_count": 162,
         "impact_weight": 1,
-        "impact_score": 161,
+        "impact_score": 162,
         "completion_pct": null,
         "objective": "Triage and route uncategorized actionables into concrete implementation milestones."
       },

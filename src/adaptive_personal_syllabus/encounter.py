@@ -2,6 +2,8 @@
 
 from typing import Any
 
+from .versions import ENCOUNTER_SCHEMA_VERSION
+
 
 def adapt_encounter(profile: dict[str, Any], module: dict[str, Any]) -> tuple[dict, dict]:
     purpose = profile.get("learning_purpose", "understand")
@@ -122,7 +124,7 @@ def adapt_encounter(profile: dict[str, Any], module: dict[str, Any]) -> tuple[di
     elif medium == "practice":
         steps.append("Perform one small reversible step, observe it, then revise your procedure.")
     decision = {
-        "schema_version": "1.2",
+        "schema_version": ENCOUNTER_SCHEMA_VERSION,
         "purpose": purpose,
         "medium": medium,
         "route": route,
