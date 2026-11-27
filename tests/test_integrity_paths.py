@@ -374,15 +374,23 @@ def test_judgment_inspection_and_contradiction(setup, tmp_path):
     admit_all_documents(storage, int(latest["id"]))
     plan = planner.generate(_profile(tmp_path))
     c = plan["modules"][0]["source_selection"]["candidates"][0]
+    chunk = storage.get_passage(c["document_id"], 0)
+    assert chunk is not None
+    passage = "Foundations need evidence."
+    span_start = str(chunk["text"]).index(passage)
     record = {
         "document_id": c["document_id"],
         "snapshot_id": c["snapshot_id"],
         "sha256": c["sha256"],
         "chunk_index": 0,
         "claim": "Foundations need evidence",
-        "passage": "Foundations need evidence.",
+        "passage": passage,
+        "span_start": span_start,
+        "span_end": span_start + len(passage),
         "reason": "Synthetic test judgment only",
-        "reviewer": "synthetic fixture",
+        # The synthetic fixture identity attests assistant review only;
+        # the human-reviewed CLI pass below uses a human identity.
+        "reviewer": "synthetic-reviewer",
         "reviewer_status": "assistant_reviewed",
         "judgment_method": "exact passage inspection",
         "reviewed_at": "2026-09-08",
@@ -399,7 +407,11 @@ def test_judgment_inspection_and_contradiction(setup, tmp_path):
     with pytest.raises(ValueError, match="does not occur"):
         storage.record_source_judgment(invalid)
     record_path = tmp_path / "judgment.json"
-    record_path.write_text(json.dumps(dict(record, reviewer_status="human_reviewed")))
+    record_path.write_text(
+        json.dumps(
+            dict(record, reviewer_status="human_reviewed", reviewer="4jp")
+        )
+    )
     args = ["corpus", "judge", str(record_path), "--db-path", str(storage.db_path)]
     assert CliRunner().invoke(cli, args).exit_code == 1
     assert CliRunner().invoke(cli, args + ["--human-reviewed"]).exit_code == 0

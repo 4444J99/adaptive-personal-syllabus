@@ -1,0 +1,25 @@
+# Reviewer allowlist — adaptive-personal-syllabus #50 (MTR-020).
+#
+# A source judgment's reviewer must resolve to one of these identities
+# (see src/adaptive_personal_syllabus/support.py). The kind decides which
+# reviewer_status the identity may attest: only a human identity can
+# attest human_reviewed; an assistant or synthetic identity attests
+# assistant_reviewed. The stored judgment carries the resolved identity
+# (reviewer_id / reviewer_kind), not just the supplied name.
+#
+# Seeded identities, all evidenced in-repo:
+# - 4jp: project owner / architect (docs/seed.yaml).
+# - 4444J99: repository owner, GitHub identity.
+# - synthetic-reviewer: synthetic test-fixture identity; assistant review
+#   only, never human review.
+schema_version: "1.0"
+reviewers:
+  - id: "4jp"
+    kind: human
+    note: "Repository owner/architect (docs/seed.yaml project owner)."
+  - id: "4444J99"
+    kind: human
+    note: "Repository owner, GitHub identity."
+  - id: "synthetic-reviewer"
+    kind: synthetic
+    note: "Synthetic test-fixture identity; assistant_reviewed only, never human."

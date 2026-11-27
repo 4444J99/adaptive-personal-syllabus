@@ -792,21 +792,37 @@ def corpus_judge(record_path: Path, human_reviewed: bool, db_path: Path) -> None
     help="Inspect judgments across a snapshot.",
 )
 @click.option("--claim", required=True)
+@click.option(
+    "--revalidate",
+    is_flag=True,
+    help="Re-check stored judgments against the latest snapshot first, "
+    "superseding those whose passage no longer verifies (#50 step 6).",
+)
 @click.option("--db-path", type=click.Path(path_type=Path), default=str(DEFAULT_DB_PATH))
 def corpus_support(
-    document_id: int | None, snapshot_id: int | None, claim: str, db_path: Path
+    document_id: int | None,
+    snapshot_id: int | None,
+    claim: str,
+    revalidate: bool,
+    db_path: Path,
 ) -> None:
     """Inspect all judgments for an exact claim, retaining contradictions.
 
     A `private`-access source's judgments are withheld (document mode
     refuses; snapshot mode drops them and reports the count), and a
     revoked source leaves the support path entirely (#48 steps 4/7).
+    Superseded judgments are listed separately and never count as live
+    support (#50): they are history about old source text, not evidence
+    about the current text.
     """
     from .support import summarize_judgments
 
     if (document_id is None) == (snapshot_id is None):
         raise click.ClickException("Choose one document ID or --snapshot-id")
     storage = Storage(db_path)
+    revalidation: dict[str, Any] | None = None
+    if revalidate:
+        revalidation = storage.revalidate_judgments()
     private_documents_excluded = 0
     try:
         if document_id is not None:
@@ -833,6 +849,8 @@ def corpus_support(
     summary = summarize_judgments(records, claim)
     if snapshot_id is not None:
         summary["private_documents_excluded"] = private_documents_excluded
+    if revalidation is not None:
+        summary["revalidation"] = revalidation
     click.echo(json.dumps(summary, indent=2))
 
 

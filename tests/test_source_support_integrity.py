@@ -40,6 +40,10 @@ def _record(chunk: dict[str, Any], **changes: Any) -> dict[str, Any]:
         "chunk_index": chunk["chunk_index"],
         "claim": "The measured treatment improves the outcome.",
         "passage": chunk["text"],
+        # Span grounding (#50): the quoted passage is the whole chunk
+        # text in these fixtures, so the span is the full chunk.
+        "span_start": 0,
+        "span_end": len(chunk["text"]),
         "reason": "Synthetic fixture only; tests review recording, not the truth of this claim.",
         "reviewer": "synthetic-reviewer",
         "reviewer_status": "assistant_reviewed",
@@ -141,7 +145,12 @@ def test_support_cli_rejects_invalid_numeric_selector(
 def test_uncertainty_is_visible_even_beside_attested_support(tmp_path: Path) -> None:
     storage, snapshot_id = _ingest(tmp_path, {"report.md": b"A limited observation."})
     chunk = storage.list_document_chunks(snapshot_id=snapshot_id)[0]
-    supported = _record(chunk, reviewer_status="human_reviewed")
+    # Human review must come from a human identity in docs/reviewers.yaml;
+    # the synthetic fixture identity can only attest assistant review.
+    supported = _record(
+        chunk, reviewer="4jp", reviewer_status="human_reviewed",
+        judgment_method="span-grounded inspection",
+    )
     storage.record_source_judgment(supported)
     storage.record_source_judgment(_record(chunk, judgment="uncertain"))
     summary = summarize_judgments(
@@ -249,3 +258,151 @@ def test_missing_external_file_keeps_exact_inspectable_snapshot(tmp_path: Path) 
     assert passage["text"] == "Exact recoverable passage."
     assert passage["sha256"] == chunk["sha256"]
     assert passage["document_completeness"] == "complete"
+
+
+# -- APS #50 (MTR-020): span grounding, reviewer authentication, invalidation,
+#    and judgments carried into plans. ----------------------------------------
+
+
+def test_supports_judgment_requires_verifiable_span(tmp_path: Path) -> None:
+    storage, snapshot_id = _ingest(tmp_path, {"report.md": b"Exact source words here."})
+    chunk = storage.list_document_chunks(snapshot_id=snapshot_id)[0]
+    # No span at all: a bare supports claim is rejected, never recorded.
+    record = _record(chunk)
+    del record["span_start"]
+    del record["span_end"]
+    with pytest.raises(ValueError, match="span"):
+        storage.record_source_judgment(record)
+    # A span whose text is not the quoted passage is rejected.
+    with pytest.raises(ValueError, match="span"):
+        storage.record_source_judgment(_record(chunk, span_start=0, span_end=5))
+    # A span outside the chunk is rejected.
+    with pytest.raises(ValueError, match="span"):
+        storage.record_source_judgment(
+            _record(chunk, span_start=0, span_end=len(chunk["text"]) + 1)
+        )
+    # A non-supports judgment needs no span: it claims nothing.
+    storage.record_source_judgment(_record(chunk, judgment="uncertain",
+                                           span_start=None, span_end=None))
+    stored = storage.list_source_judgments(chunk["document_id"])
+    assert len(stored) == 1 and stored[0]["judgment"] == "uncertain"
+    # A supports judgment with the span pinning the quoted passage records.
+    storage.record_source_judgment(_record(chunk))
+    assert len(storage.list_source_judgments(chunk["document_id"])) == 2
+
+
+def test_unknown_or_mismatched_reviewer_is_rejected(tmp_path: Path) -> None:
+    storage, snapshot_id = _ingest(tmp_path, {"report.md": b"Some inspected passage."})
+    chunk = storage.list_document_chunks(snapshot_id=snapshot_id)[0]
+    with pytest.raises(ValueError, match="Unknown reviewer"):
+        storage.record_source_judgment(_record(chunk, reviewer="nobody-at-all"))
+    # The synthetic fixture identity can attest assistant review only.
+    with pytest.raises(ValueError, match="cannot attest"):
+        storage.record_source_judgment(
+            _record(chunk, reviewer_status="human_reviewed")
+        )
+    # A known human identity attesting human review records, carrying the
+    # resolved identity alongside the supplied name.
+    storage.record_source_judgment(
+        _record(chunk, reviewer="4jp", reviewer_status="human_reviewed",
+                judgment_method="span-grounded inspection")
+    )
+    stored = storage.list_source_judgments(chunk["document_id"])[0]
+    assert stored["reviewer_id"] == "4jp"
+    assert stored["reviewer_kind"] == "human"
+    # A judgment method outside the registry is rejected, not free text.
+    with pytest.raises(ValueError, match="judgment_method"):
+        storage.record_source_judgment(
+            _record(chunk, judgment_method="vibes-based entailment")
+        )
+
+
+def test_reingest_with_changed_source_supersedes_prior_judgment(tmp_path: Path) -> None:
+    storage, first_id = _ingest(tmp_path, {"report.md": b"Original source words."})
+    chunk = storage.list_document_chunks(snapshot_id=first_id)[0]
+    storage.record_source_judgment(_record(chunk))
+    (tmp_path / "sources" / "report.md").write_bytes(b"Revised source words.")
+    second = CorpusIngestor(storage).ingest(tmp_path / "sources", "second-snapshot")
+    stored = storage.list_source_judgments(snapshot_id=first_id)
+    assert len(stored) == 1
+    assert stored[0].get("status") == "superseded"
+    assert stored[0]["superseded_by_snapshot_id"] == second.snapshot_id
+    assert stored[0]["superseded_at"]
+    # The superseded supports never reads as live support: the summary
+    # reports it separately and the live status stays unverified.
+    summary = summarize_judgments(stored, stored[0]["claim"])
+    assert summary["status"] == "source_support_unverified"
+    assert summary["superseded_count"] == 1
+    assert summary["judgments"] == []
+    assert len(summary["superseded"]) == 1
+    # An unchanged re-ingest does not supersede: same bytes, same evidence.
+    (tmp_path / "sources" / "stable.md").write_bytes(b"Stable source words.")
+    stable_id = CorpusIngestor(storage).ingest(
+        tmp_path / "sources", "stable-first"
+    ).snapshot_id
+    chunk2 = next(
+        c
+        for c in storage.list_document_chunks(snapshot_id=stable_id)
+        if c["rel_path"] == "stable.md"
+    )
+    storage.record_source_judgment(_record(chunk2))
+    CorpusIngestor(storage).ingest(tmp_path / "sources", "stable-second")
+    assert storage.list_source_judgments(snapshot_id=stable_id)[0].get("status") is None
+
+
+def test_planner_carries_validated_human_judgment(tmp_path: Path) -> None:
+    storage, snapshot_id = _ingest(
+        tmp_path,
+        {"foundations.md": b"# Foundations\nA measured treatment improves the outcome."},
+    )
+    planner = Planner(storage, Ledger(storage), _seed_dir(tmp_path))
+    admit_all_documents(storage, snapshot_id)
+    plan = planner.generate(_profile(tmp_path))
+    first = plan["modules"][0]["source_selection"]
+    assert [c["rel_path"] for c in first["candidates"]] == ["foundations.md"]
+    assert first["judgments"] == []
+    assert first["claim_support_status"] == "source_support_unverified"
+    assert first["missing_support"] == "No human-reviewed claim support is attached."
+    chunk = storage.list_document_chunks(snapshot_id=snapshot_id)[0]
+    storage.record_source_judgment(
+        _record(chunk, reviewer="4jp", reviewer_status="human_reviewed",
+                judgment_method="span-grounded inspection")
+    )
+    plan = planner.generate(_profile(tmp_path))
+    first = plan["modules"][0]["source_selection"]
+    assert len(first["judgments"]) == 1
+    assert first["judgments"][0]["reviewer_id"] == "4jp"
+    assert first["claim_support_status"] == "human_reviewed_support"
+    assert first["missing_support"] is None
+    assert first["superseded_judgments"] == []
+
+
+def test_corpus_support_revalidate_marks_changed_judgment(tmp_path: Path) -> None:
+    storage, first_id = _ingest(tmp_path, {"report.md": b"Original source words."})
+    chunk = storage.list_document_chunks(snapshot_id=first_id)[0]
+    (tmp_path / "sources" / "report.md").write_bytes(b"Revised source words.")
+    second = CorpusIngestor(storage).ingest(tmp_path / "sources", "second-snapshot")
+    # A judgment recorded against the old snapshot after the newer one
+    # already exists validates (the old passage is intact in its snapshot)
+    # but is born stale: its source has already changed. Revalidation is
+    # the pass that catches it — the ingest hook only fires at ingest time.
+    storage.record_source_judgment(_record(chunk))
+    stored = storage.list_source_judgments(snapshot_id=first_id)
+    assert stored[0].get("status") is None
+    result = CliRunner().invoke(
+        cli,
+        [
+            "corpus", "support", "--snapshot-id", str(first_id),
+            "--claim", "The measured treatment improves the outcome.",
+            "--revalidate", "--db-path", str(storage.db_path),
+        ],
+    )
+    assert result.exit_code == 0, result.output
+    payload = json.loads(result.output)
+    assert payload["revalidation"]["superseded"] == 1
+    assert payload["status"] == "source_support_unverified"
+    assert payload["superseded_count"] == 1
+    assert payload["judgments"] == []
+    stored = storage.list_source_judgments(snapshot_id=first_id)
+    assert stored[0].get("status") == "superseded"
+    assert stored[0]["superseded_by_snapshot_id"] == second.snapshot_id

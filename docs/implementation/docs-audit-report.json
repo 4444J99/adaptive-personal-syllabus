@@ -4,18 +4,18 @@
   "verification_status": "unverified",
   "unmatched_implementation_claims": {},
   "rejected_verifications": [],
-  "generated_at": "2026-11-23T03:41:45+00:00",
+  "generated_at": "2026-11-27T21:49:22+00:00",
   "root_path": "docs",
   "snapshot": {
     "snapshot_id": 1,
     "snapshot_name": "docs-full-audit",
-    "doc_count": 100,
-    "unique_payload_count": 62,
-    "created_at": "2026-11-23T03:41:44+00:00"
+    "doc_count": 102,
+    "unique_payload_count": 64,
+    "created_at": "2026-11-27T21:49:22+00:00"
   },
   "ingest_verification": {
-    "expected_file_count": 100,
-    "snapshot_doc_count": 100,
+    "expected_file_count": 102,
+    "snapshot_doc_count": 102,
     "all_files_ingested": true
   },
   "files": [
@@ -270,8 +270,8 @@
     {
       "rel_path": "claims/leases.yaml",
       "canonical_rel_path": "claims/leases.yaml",
-      "sha256": "80a365670bcd3104d49b6ae1dc634e0488edd9453daee81bc20ccbe9dc81df54",
-      "size_bytes": 7471,
+      "sha256": "d7caafedaed9ea26be286a9efdbb4c1600014fc95c42ad5c4860c8768acdf53c",
+      "size_bytes": 8393,
       "extension": ".yaml",
       "is_duplicate_payload": false
     },
@@ -360,6 +360,14 @@
       "canonical_rel_path": "implementation/source-admission.md",
       "sha256": "e6fafdf22477527cbcdd6095e1a9b2ff03c6ba390b6b47ff878175d7cf323a99",
       "size_bytes": 8008,
+      "extension": ".md",
+      "is_duplicate_payload": false
+    },
+    {
+      "rel_path": "implementation/source-support.md",
+      "canonical_rel_path": "implementation/source-support.md",
+      "sha256": "7c818e24afe7812c1c9318817a7b580b3bce087747d05f2483668bbf226a4a89",
+      "size_bytes": 4970,
       "extension": ".md",
       "is_duplicate_payload": false
     },
@@ -472,6 +480,14 @@
       "canonical_rel_path": "privacy-classification.yaml",
       "sha256": "10772974df4521a9398dc630de246fe879395746ebcf53ccd0488a661ee73962",
       "size_bytes": 6530,
+      "extension": ".yaml",
+      "is_duplicate_payload": false
+    },
+    {
+      "rel_path": "reviewers.yaml",
+      "canonical_rel_path": "reviewers.yaml",
+      "sha256": "50b305e73b6edc25bb1e398edd3bdb9d82ce770a9cc41d1f9de331bca59c6241",
+      "size_bytes": 1082,
       "extension": ".yaml",
       "is_duplicate_payload": false
     },
