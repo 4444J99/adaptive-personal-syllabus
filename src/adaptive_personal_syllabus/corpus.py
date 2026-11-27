@@ -448,6 +448,12 @@ class CorpusIngestor:
                     conn=conn,
                 )
 
+            # Judgment invalidation (#50, step 4): a new snapshot for a
+            # document whose text changed supersedes the prior snapshot's
+            # judgments on that document. Same transaction as the ingest,
+            # so a failed ingest never leaves a half-superseded store.
+            superseded = self.storage.supersede_stale_judgments(snapshot_id, conn=conn)
+
             if self.ledger is not None:
                 self.ledger.append(
                     "corpus.ingest",
@@ -460,6 +466,7 @@ class CorpusIngestor:
                         "canonical_document_count": canonical_docs,
                         "alias_count": alias_count,
                         "chunk_count": chunk_count,
+                        "judgments_superseded": superseded["superseded"],
                     },
                     conn=conn,
                 )

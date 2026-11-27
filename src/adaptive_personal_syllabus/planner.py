@@ -16,6 +16,7 @@ from .generator import SyllabusGenerator
 from .ledger import Ledger
 from .models import DifficultyLevel, LearnerProfile, PersonalizationRule
 from .storage import Storage
+from .support import summarize_judgments, worst_support_status
 
 WINGS: list[dict[str, str]] = [
     {
@@ -299,14 +300,54 @@ class Planner:
                 continue
             usable_chunks.append((chunk, tokens))
         chunks = usable_chunks
+        # Claim support (#50, step 5): judgments for this snapshot, attached
+        # to the modules that actually selected their documents. Modules
+        # carry no claim strings, so the checkable filter is the module's
+        # selected sources — a judgment about a source the module did not
+        # select is not attached to it. Judgments enter the fingerprint:
+        # they are plan content, not time-varying observation like
+        # freshness, so a plan whose evidence changes is a different plan.
+        snapshot_judgments = self.storage.list_source_judgments(
+            snapshot_id=snapshot_id
+        )
         for row in module_rows:
             row["adaptation"], row["encounter"] = adapt_encounter(profile_data, row)
+            candidates = self._select_source_candidates(chunks=chunks, module=row)
+            candidate_doc_ids = {int(c["document_id"]) for c in candidates}
+            attached = [
+                j
+                for j in snapshot_judgments
+                if int(j["document_id"]) in candidate_doc_ids
+                and j.get("status") != "superseded"
+            ]
+            superseded = [
+                j
+                for j in snapshot_judgments
+                if int(j["document_id"]) in candidate_doc_ids
+                and j.get("status") == "superseded"
+            ]
+            claim_statuses = [
+                summarize_judgments(attached, str(claim))["status"]
+                for claim in {str(j["claim"]) for j in attached}
+            ]
             row["source_selection"] = {
                 "schema_version": SOURCE_SELECTION_SCHEMA_VERSION,
-                "candidates": self._select_source_candidates(chunks=chunks, module=row),
-                "claim_support_status": "source_support_unverified",
-                "judgments": [],
-                "missing_support": "No human-reviewed claim support is attached.",
+                "candidates": candidates,
+                "claim_support_status": (
+                    worst_support_status(claim_statuses)
+                    if attached
+                    else "source_support_unverified"
+                ),
+                "judgments": attached,
+                # Superseded judgments are history, not evidence: listed
+                # so a reader can see support existed and was invalidated,
+                # never counted toward the live status above.
+                "superseded_judgments": superseded,
+                "missing_support": (
+                    None
+                    if attached
+                    else "No human-reviewed claim support is attached."
+                ),
             }
 
         personalization_rules_hash = self._hash_personalization_rules(

@@ -1079,6 +1079,174 @@ class Storage:
                 )
             ]
 
+    # -- Judgment invalidation (#50, MTR-020) -------------------------------
+
+    def _supersede_judgment_row(
+        self,
+        conn: sqlite3.Connection,
+        judgment_id: int,
+        *,
+        snapshot_id: int,
+        reason: str,
+    ) -> bool:
+        """Mark one stored judgment superseded in place; history is kept.
+
+        Why in place: the row keeps every original field and gains
+        ``status: superseded`` plus the superseding snapshot and reason,
+        so the superseded judgment stays readable as history and never
+        reads as live support. Returns False when already superseded.
+        """
+        row = conn.execute(
+            "SELECT payload_json FROM source_judgments WHERE id=?", (judgment_id,)
+        ).fetchone()
+        if row is None:
+            return False
+        payload = json.loads(row[0])
+        if payload.get("status") == "superseded":
+            return False
+        payload["status"] = "superseded"
+        payload["superseded_by_snapshot_id"] = snapshot_id
+        payload["superseded_at"] = utcnow_iso()
+        payload["superseded_reason"] = reason
+        conn.execute(
+            "UPDATE source_judgments SET payload_json=? WHERE id=?",
+            (json.dumps(payload, allow_nan=False), judgment_id),
+        )
+        return True
+
+    def supersede_stale_judgments(
+        self, snapshot_id: int, *, conn: sqlite3.Connection | None = None
+    ) -> dict[str, Any]:
+        """Supersede prior-snapshot judgments whose source text changed.
+
+        Why at ingest: a new snapshot for a document whose chunk sha256
+        changed means the old judgments speak about old bytes. Documents
+        are per-snapshot rows, so the link is (snapshot root_path,
+        rel_path): same source, new snapshot, different content. An
+        unchanged re-ingest supersedes nothing — same bytes, same evidence.
+        """
+        if conn is None:
+            with self.connection() as db_conn:
+                return self.supersede_stale_judgments(snapshot_id, conn=db_conn)
+        snapshot = conn.execute(
+            "SELECT root_path FROM snapshots WHERE id=?", (snapshot_id,)
+        ).fetchone()
+        if snapshot is None:
+            raise ValueError(f"Unknown snapshot {snapshot_id}")
+        root_path = str(snapshot[0])
+        new_docs = conn.execute(
+            "SELECT id, rel_path, sha256 FROM documents WHERE snapshot_id=?",
+            (snapshot_id,),
+        ).fetchall()
+        superseded: list[dict[str, Any]] = []
+        for doc in new_docs:
+            prior = conn.execute(
+                "SELECT d.id FROM documents d JOIN snapshots s ON s.id=d.snapshot_id "
+                "WHERE s.root_path=? AND d.rel_path=? AND d.snapshot_id < ? "
+                "AND d.sha256 != ?",
+                (root_path, str(doc["rel_path"]), snapshot_id, str(doc["sha256"])),
+            ).fetchall()
+            for (prior_id,) in prior:
+                rows = conn.execute(
+                    "SELECT id FROM source_judgments WHERE document_id=?",
+                    (int(prior_id),),
+                ).fetchall()
+                for (judgment_id,) in rows:
+                    if self._supersede_judgment_row(
+                        conn, int(judgment_id), snapshot_id=snapshot_id,
+                        reason="source_changed",
+                    ):
+                        superseded.append(
+                            {
+                                "judgment_id": int(judgment_id),
+                                "document_id": int(prior_id),
+                                "superseded_by_snapshot_id": snapshot_id,
+                            }
+                        )
+        return {
+            "snapshot_id": snapshot_id,
+            "superseded": len(superseded),
+            "judgments": superseded,
+        }
+
+    def revalidate_judgments(
+        self, *, snapshot_id: int | None = None,
+        conn: sqlite3.Connection | None = None,
+    ) -> dict[str, Any]:
+        """Re-check live judgments against a snapshot; supersede stale ones.
+
+        Why a separate pass: judgments can go stale without a superseding
+        ingest — recorded against an old snapshot after a newer one
+        already exists, or recorded before invalidation shipped. The
+        check is the same one ingest applies: the judgment's passage must
+        still occur in the same document's chunk at the target snapshot.
+        Defaults to the latest snapshot.
+        """
+        if conn is None:
+            with self.connection() as db_conn:
+                return self.revalidate_judgments(snapshot_id=snapshot_id, conn=db_conn)
+        if snapshot_id is None:
+            latest = conn.execute(
+                "SELECT id FROM snapshots ORDER BY id DESC LIMIT 1"
+            ).fetchone()
+            if latest is None:
+                return {"snapshot_id": None, "checked": 0, "superseded": 0, "judgments": []}
+            snapshot_id = int(latest[0])
+        target_docs = {
+            str(row["rel_path"]): int(row["id"])
+            for row in conn.execute(
+                "SELECT id, rel_path FROM documents WHERE snapshot_id=?",
+                (snapshot_id,),
+            ).fetchall()
+        }
+        rows = conn.execute(
+            "SELECT id, document_id, payload_json FROM source_judgments ORDER BY id"
+        ).fetchall()
+        checked = 0
+        superseded: list[dict[str, Any]] = []
+        for judgment_id, document_id, payload_json in rows:
+            payload = json.loads(payload_json)
+            if payload.get("status") == "superseded":
+                continue
+            checked += 1
+            doc = conn.execute(
+                "SELECT rel_path FROM documents WHERE id=?", (int(document_id),)
+            ).fetchone()
+            reason: str | None = None
+            if doc is None:
+                reason = "source_absent"
+            else:
+                target_id = target_docs.get(str(doc[0]))
+                if target_id is None:
+                    reason = "source_absent"
+                else:
+                    passage = self.get_passage(
+                        target_id, int(payload.get("chunk_index", 0))
+                    )
+                    if (
+                        passage is None
+                        or passage["sha256"] != payload.get("sha256")
+                        or str(payload.get("passage", "")) not in str(passage["text"])
+                    ):
+                        reason = "source_changed"
+            if reason is not None and self._supersede_judgment_row(
+                conn, int(judgment_id), snapshot_id=snapshot_id, reason=reason
+            ):
+                superseded.append(
+                    {
+                        "judgment_id": int(judgment_id),
+                        "document_id": int(document_id),
+                        "reason": reason,
+                        "superseded_by_snapshot_id": snapshot_id,
+                    }
+                )
+        return {
+            "snapshot_id": snapshot_id,
+            "checked": checked,
+            "superseded": len(superseded),
+            "judgments": superseded,
+        }
+
     # -- Live-source refresh (#54, MTR-018) ---------------------------------
 
     def find_source_record(

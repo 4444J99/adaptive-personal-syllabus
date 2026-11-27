@@ -202,8 +202,11 @@ def test_revoked_document_leaves_planner_and_support(tmp_path: Path) -> None:
         "chunk_index": chunk["chunk_index"],
         "claim": "Foundations need evidence.",
         "passage": chunk["text"],
+        "span_start": 0,
+        "span_end": len(chunk["text"]),
         "reason": "Synthetic fixture only.",
-        "reviewer": "synthetic-reviewer",
+        # Human review attested by a human identity in docs/reviewers.yaml.
+        "reviewer": "4jp",
         "reviewer_status": "human_reviewed",
         "judgment_method": "exact passage inspection",
         "reviewed_at": "2026-11-22",
