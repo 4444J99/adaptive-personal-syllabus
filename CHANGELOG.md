@@ -13,6 +13,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - SQLite schema marker (`schema_meta`, version 1) with a newer-marker guard; a pre-marker database gains the marker on first open with its data intact
 - `src/adaptive_personal_syllabus/versions.py` — one source for every schema-version literal (plan JSON 2.0, CLI envelopes 1.0, profile 1.0, encounter 1.2, audit report 2.0, milestone execution plan 1.0)
 - Migration fixture `tests/fixtures/plan-0.5.0-era.json` plus `tests/test_compatibility.py` (8 tests) proving a 0.5.0-era plan still reads and renders
+- Encounter completion receipts for #51: `complete_encounter` in `src/adaptive_personal_syllabus/encounter.py` plus `syllabus plan encounter-complete` — one `encounter.receipt` ledger event per completion, with a content-addressed `response_locator`, a justified `next_instruction` citing its basis, and `assessment_status` staying `unassessed`; 13 tests in `tests/test_instructional_adaptation.py`
 
 ### Changed
 - #21's Sep 13 "frozen inventory receipt" is superseded by `docs/mentor-roadmap-state.md` on every count (branches, PR states, CI state, release state)

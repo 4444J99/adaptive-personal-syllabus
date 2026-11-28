@@ -41,7 +41,8 @@ Verified at main `524f57ab` (2026-11-22): every remote branch is accounted for i
 | #48 (MTR-017) | work/mentor/source-admission | `8ee1538f` | main | In progress (this PR); source admission record |
 | #49–#69 (MTR-019–MTR-038, except #50/#52/#53/#54/#68) | no branch yet — unclaimed | — | main | Unclaimed (planned) |
 | #50 (MTR-020) | work/mentor/source-support | `783ab21b` | main | Merged via PR #95 (`9c3243f1`); span grounding, reviewer allowlist, judgment invalidation, judgments in plans |
-| #53 (MTR-025) | work/mentor/version-contract | `9c3243f1` | main | In progress (this PR); versioned compatibility promise (ADR 008), single version source, schema-version matrix, DB marker |
+| #51 (MTR-021) | work/mentor/encounter-loop | `ae1d7680` | main | In progress (this PR); encounter completion receipt (`encounter.receipt`), justified next step, no-response leaves mastery unassessed |
+| #53 (MTR-025) | work/mentor/version-contract | `9c3243f1` | main | Merged via PR #96 (`ae1d7680`); versioned compatibility promise (ADR 008), single version source, schema-version matrix, DB marker |
 | #68 (MTR-037) | no branch yet — unclaimed | — | main | Unclaimed (planned) |
 | #52 (MTR-022) | work/mentor/ledger-consistency | `96459abc` | main | Merged via PR #91 (`8f9685c5`); ledger checkpoint + atomic plan-generate; corpus ingest already atomic at this head (verified, no change); docs.audit / artifact appends named-why, not re-transactioned |
 | #54 (MTR-018) | work/mentor/live-source-loop | `8f9685c5` (base refreshed at PR time: PR #91 merged first) | main | In progress (this PR); live-source refresh loop |
