@@ -239,3 +239,22 @@ grant_history:
     expiry: "2026-11-30T12:00:00Z"
     receipt: "Lease grant on #21 (comment 7230181368)"
     status: granted
+
+  - sequence: 11
+    grantee: ranked-queue-build
+    issue: 51
+    base: ae1d7680b3fbfd148cdcdad7afdab3756831d60d
+    head: ae1d7680b3fbfd148cdcdad7afdab3756831d60d
+    branch: work/mentor/encounter-loop
+    scope:
+      - src/adaptive_personal_syllabus/encounter.py
+      - src/adaptive_personal_syllabus/core.py
+      - tests/test_instructional_adaptation.py
+      - docs/claims/leases.yaml
+      - BRANCHES.md
+      - CHANGELOG.md
+      - docs/implementation/docs-audit-report.json
+      - docs/implementation/docs-audit-roadmap.md
+    expiry: "2026-11-30T12:00:00Z"
+    receipt: "Lease grant on #21 (comment 7231661196)"
+    status: granted

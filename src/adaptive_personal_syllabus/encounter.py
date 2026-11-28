@@ -1,8 +1,42 @@
 """Deterministic instructional choices, without ability inference or source rewriting."""
 
+import hashlib
+import json
 from typing import Any
 
 from .versions import ENCOUNTER_SCHEMA_VERSION
+
+# Next instructions, keyed by the route the encounter took (the decision
+# route from prior evidence). Each is a sentence, not a code: the receipt
+# is read by the learner, and the justification lives in
+# next_instruction_basis beside it.
+_NEXT_INSTRUCTIONS = {
+    "transfer_attempt": (
+        "Attempt the idea in a new case; treat the transfer as untested until observed."
+    ),
+    "worked_explanation": (
+        "Use a worked example first: identify the claim, its reason, "
+        "and a case where that reason is insufficient."
+    ),
+    "evidence_review": (
+        "Inspect the conflicting observations before choosing a harder task."
+    ),
+    "first_encounter": (
+        "Return to this encounter; the response is recorded as a first "
+        "observation and claims no mastery."
+    ),
+    "prerequisite_check": (
+        "Inspect the prerequisites before proceeding; "
+        "missing access is not a learning deficit."
+    ),
+    "source_unavailable": (
+        "Return when the source is available; "
+        "source-specific conclusions remain unverified."
+    ),
+}
+_NO_RESPONSE_INSTRUCTION = (
+    "No change: return to this encounter later; mastery stays unassessed."
+)
 
 
 def adapt_encounter(profile: dict[str, Any], module: dict[str, Any]) -> tuple[dict, dict]:
@@ -156,3 +190,78 @@ def adapt_encounter(profile: dict[str, Any], module: dict[str, Any]) -> tuple[di
         "completion": "Understanding, enjoyment, a better question, or a useful action may end the encounter.",
     }
     return decision, encounter
+
+
+def complete_encounter(
+    decision: dict[str, Any],
+    encounter: dict[str, Any],
+    response: dict[str, Any],
+) -> dict[str, Any]:
+    """Build the receipt for one completed encounter.
+
+    The receipt records an explicit response choice and the next step that
+    choice justifies. It never assesses: ``assessment_status`` stays
+    ``"unassessed"`` because this flow has no assessment mechanism — a
+    response is an observation, not a result — so no mastery claim can be
+    written by completing an encounter.
+
+    ``response`` carries the encounter identity the caller resolved
+    (neither ``decision`` nor ``encounter`` holds a ``module_id``):
+    ``module_id``, ``response_route`` (one of the encounter's own
+    ``response_routes``), and optional verbatim ``learner_words``.
+    Learner words are copied exactly as supplied, never rewritten or
+    summarized; ``no_response_now`` carries none.
+
+    ``response_locator`` is a content address — ``receipt:<sha256>`` of
+    the canonical receipt JSON — so the receipt is identical in the CLI
+    echo, the ledger payload, and any artifact write. It is deliberately
+    not the ledger event hash: ``Ledger.append`` computes the event hash
+    from the payload at append time, so no receipt field can contain its
+    own event hash before append. The event stays retrievable because
+    its payload IS this receipt.
+    """
+    route = decision.get("route")
+    if route not in _NEXT_INSTRUCTIONS:
+        raise ValueError(f"Unknown decision route: {route!r}")
+    module_id = response.get("module_id")
+    if not isinstance(module_id, str) or not module_id:
+        raise ValueError("response must carry a non-empty module_id")
+    response_route = response.get("response_route")
+    if response_route not in encounter.get("response_routes", []):
+        raise ValueError(
+            f"response_route {response_route!r} is not one of the encounter's "
+            f"response_routes: {encounter.get('response_routes')}"
+        )
+    learner_words = response.get("learner_words")
+    if learner_words is not None and not isinstance(learner_words, str):
+        raise ValueError("learner_words must be text or None")
+    if response_route == "no_response_now" and learner_words is not None:
+        raise ValueError("no_response_now carries no learner words")
+
+    if response_route == "no_response_now":
+        # No state change: the encounter stays returnable, mastery stays
+        # unassessed. The receipt records the choice itself, not a claim.
+        next_instruction = _NO_RESPONSE_INSTRUCTION
+    else:
+        next_instruction = _NEXT_INSTRUCTIONS[route]
+
+    receipt: dict[str, Any] = {
+        "schema_version": ENCOUNTER_SCHEMA_VERSION,
+        "module_id": module_id,
+        "purpose": decision["purpose"],
+        "route": route,
+        "response_route": response_route,
+        "learner_words": learner_words,
+        "assessment_status": "unassessed",
+        "next_instruction": next_instruction,
+        "next_instruction_basis": (
+            "MTR-021 acceptance + encounter.py route rules; "
+            f"decision route={route} ({decision['reason']}); "
+            f"response_route={response_route}."
+        ),
+    }
+    canonical = json.dumps(receipt, sort_keys=True, separators=(",", ":"))
+    receipt["response_locator"] = (
+        "receipt:" + hashlib.sha256(canonical.encode("utf-8")).hexdigest()
+    )
+    return receipt

@@ -24,6 +24,7 @@ from .docs_audit import (
     render_milestone_execution_markdown,
     write_report,
 )
+from .encounter import complete_encounter
 from .freshness import source_freshness
 from .generator import SyllabusGenerator
 from .hooks import HookRunner
@@ -559,6 +560,67 @@ def plan_encounter(
     lines.append(payload["response_prompt"])
     lines.append(encounter["completion"])
     click.echo("\n".join(lines))
+
+
+@plan.command("encounter-complete")
+@click.argument("plan_id", type=int)
+@click.option("--module-id", default=None, help="Choose a module; defaults to the first.")
+@click.option(
+    "--response-route",
+    required=True,
+    type=click.Choice(
+        [
+            "short_written",
+            "spoken_under_two_minutes",
+            "worked_explanation",
+            "no_response_now",
+        ]
+    ),
+)
+@click.option(
+    "--learner-words",
+    default=None,
+    help="Verbatim learner text, recorded as supplied; omit for no response.",
+)
+@click.option("--db-path", type=click.Path(path_type=Path), default=str(DEFAULT_DB_PATH))
+def plan_encounter_complete(
+    plan_id: int,
+    module_id: str | None,
+    response_route: str,
+    learner_words: str | None,
+    db_path: Path,
+) -> None:
+    """Complete one encounter with an explicit response choice and append its receipt.
+
+    Records the choice in the append-only ledger; it never assesses mastery.
+    Unlike `plan encounter`, which is read-only, this command writes exactly
+    one `encounter.receipt` ledger event.
+    """
+    storage = Storage(db_path)
+    doc = storage.get_plan(plan_id)
+    if doc is None:
+        raise click.ClickException("Plan not found")
+    modules = doc["modules"]
+    module = next((m for m in modules if module_id is None or m["module_id"] == module_id), None)
+    if module is None:
+        raise click.ClickException("No matching module in this plan")
+    encounter = module.get("encounter")
+    if encounter is None:
+        raise click.ClickException("This historical plan has no stored encounter")
+    try:
+        receipt = complete_encounter(
+            module["adaptation"],
+            encounter,
+            {
+                "module_id": module["module_id"],
+                "response_route": response_route,
+                "learner_words": learner_words,
+            },
+        )
+    except (KeyError, ValueError) as exc:
+        raise click.ClickException(str(exc)) from exc
+    Ledger(storage).append("encounter.receipt", receipt)
+    click.echo(json.dumps(receipt))
 
 
 
