@@ -297,3 +297,26 @@ grant_history:
     expiry: "2026-11-30T12:00:00Z"
     receipt: "Lease grant on #21 (comment 7234666583)"
     status: granted
+
+  - sequence: 14
+    grantee: ranked-queue-build
+    issue: 57
+    base: 24ec976c68c78f47ea4a115865adf26021aa74f8
+    head: 24ec976c68c78f47ea4a115865adf26021aa74f8
+    branch: work/mentor/release-artifact
+    scope:
+      - .github/workflows/release.yml
+      - docs/adr/011-release-artifact.md
+      - docs/QUICKSTART.md
+      - docs/implementation/release-verification-0.6.0.md
+      - tests/test_release_artifact.py
+      - MANIFEST.in
+      - docs/privacy-classification.yaml
+      - docs/claims/leases.yaml
+      - BRANCHES.md
+      - CHANGELOG.md
+      - docs/implementation/docs-audit-report.json
+      - docs/implementation/docs-audit-roadmap.md
+    expiry: "2026-11-30T12:00:00Z"
+    receipt: "Lease grant on #21 (comment 7235908294; scope amended comment 7236031956 to add MANIFEST.in and docs/privacy-classification.yaml)"
+    status: granted
