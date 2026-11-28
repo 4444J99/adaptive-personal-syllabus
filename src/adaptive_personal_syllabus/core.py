@@ -31,8 +31,18 @@ from .generator import SyllabusGenerator
 from .hooks import HookRunner
 from .ledger import Ledger
 from .models import DifficultyLevel, LearnerProfile
+from .operating import (
+    OperatingError,
+    backup_store,
+    budget_record,
+    delete_learner,
+    open_store,
+    operating_status,
+    redact_plan_doc,
+    restore_store,
+)
 from .planner import WINGS, Planner
-from .storage import DEFAULT_DB_PATH, DEFAULT_PROFILE_PATH, Storage
+from .storage import DEFAULT_DB_PATH, DEFAULT_PROFILE_PATH, Storage, utcnow_iso
 from .versions import CLI_ENVELOPE_SCHEMA_VERSION, PROFILE_SCHEMA_VERSION
 
 
@@ -259,6 +269,130 @@ def ledger_verify(db_path: Path) -> None:
     click.echo(json.dumps(payload, indent=2))
     if not ok:
         raise click.ClickException("Ledger verification failed")
+
+
+@cli.group("ops")
+def ops_group() -> None:
+    """Operating evidence: backup, restore, deletion, status (#58, ADR 012)."""
+
+
+@ops_group.command("backup")
+@click.option(
+    "--db-path",
+    type=click.Path(path_type=Path),
+    default=str(DEFAULT_DB_PATH),
+    show_default=True,
+)
+@click.option(
+    "--output",
+    "output_path",
+    required=True,
+    type=click.Path(path_type=Path),
+    help="Where to write the backup file.",
+)
+def ops_backup(db_path: Path, output_path: Path) -> None:
+    """Copy the store to a named location with a checksum receipt."""
+    try:
+        receipt = backup_store(db_path, output_path)
+    except OperatingError as exc:
+        raise click.ClickException(str(exc)) from exc
+    receipt["schema_version"] = CLI_ENVELOPE_SCHEMA_VERSION
+    click.echo(json.dumps(receipt, indent=2))
+
+
+@ops_group.command("restore")
+@click.option(
+    "--backup",
+    "backup_path",
+    required=True,
+    type=click.Path(path_type=Path, exists=True, dir_okay=False),
+    help="Backup file produced by `syllabus ops backup`.",
+)
+@click.option(
+    "--db-path",
+    type=click.Path(path_type=Path),
+    default=str(DEFAULT_DB_PATH),
+    show_default=True,
+)
+def ops_restore(backup_path: Path, db_path: Path) -> None:
+    """Rebuild the store from a backup and verify it afterwards."""
+    try:
+        receipt = restore_store(backup_path, db_path)
+    except OperatingError as exc:
+        raise click.ClickException(str(exc)) from exc
+    receipt["schema_version"] = CLI_ENVELOPE_SCHEMA_VERSION
+    click.echo(json.dumps(receipt, indent=2))
+
+
+@ops_group.command("delete-profile")
+@click.argument("profile_id", type=int)
+@click.option(
+    "--db-path",
+    type=click.Path(path_type=Path),
+    default=str(DEFAULT_DB_PATH),
+    show_default=True,
+)
+def ops_delete_profile(profile_id: int, db_path: Path) -> None:
+    """Delete one learner profile and its dependent plans, with a receipt.
+
+    The receipt carries counts only — no name, goals, or context. The
+    profile file (if one was written by `profile init`) is the operator's
+    to delete; see runbooks/deletion.md. The `profile.init` ledger event
+    stays: the ledger is append-only (#52).
+    """
+    try:
+        receipt = delete_learner(open_store(db_path), profile_id)
+    except OperatingError as exc:
+        raise click.ClickException(str(exc)) from exc
+    receipt["schema_version"] = CLI_ENVELOPE_SCHEMA_VERSION
+    click.echo(json.dumps(receipt, indent=2))
+
+
+@ops_group.command("status")
+@click.option(
+    "--db-path",
+    type=click.Path(path_type=Path),
+    default=str(DEFAULT_DB_PATH),
+    show_default=True,
+)
+@click.option(
+    "--budget",
+    "budget_path",
+    type=click.Path(path_type=Path, exists=True, dir_okay=False),
+    default=None,
+    help="Operating-budget artifact to read back (default: the ADR 012 values).",
+)
+def ops_status(db_path: Path, budget_path: Path | None) -> None:
+    """Report the operating verdict: integrity, ledger, backup, freshness, budget.
+
+    Exits non-zero when any check fails. The output carries no profile
+    content by construction — counts and hashes only. A store SQLite
+    cannot open at all still prints a failing payload instead of a bare
+    error: the status command is the alert path, and an unreadable store
+    is the alert firing, not a reason to stay silent.
+    """
+    try:
+        storage = open_store(db_path)
+    except OperatingError as exc:
+        payload = {
+            "schema_version": CLI_ENVELOPE_SCHEMA_VERSION,
+            "ok": False,
+            "checks": [
+                {"name": "store_integrity", "status": "fail", "detail": str(exc)}
+            ],
+            "budget": budget_record(),
+            "generated_at": utcnow_iso(),
+        }
+        click.echo(json.dumps(payload, indent=2))
+        raise click.ClickException("Operating status failed") from exc
+    try:
+        payload = operating_status(storage, budget_path=budget_path)
+    except OperatingError as exc:
+        raise click.ClickException(str(exc)) from exc
+    payload["schema_version"] = CLI_ENVELOPE_SCHEMA_VERSION
+    click.echo(json.dumps(payload, indent=2))
+    if not payload["ok"]:
+        raise click.ClickException("Operating status failed")
 
 
 @cli.group()
@@ -524,7 +658,18 @@ def _render_plan_markdown(plan_doc: dict[str, Any]) -> str:
     type=click.Path(path_type=Path, exists=True, file_okay=False),
     default=None,
 )
-def plan_generate(profile_path: Path, fmt: str, db_path: Path, seed_dir: Path | None) -> None:
+@click.option(
+    "--redacted",
+    is_flag=True,
+    help="Redact the learner name, goals, and context from the output (#58, ADR 012).",
+)
+def plan_generate(
+    profile_path: Path,
+    fmt: str,
+    db_path: Path,
+    seed_dir: Path | None,
+    redacted: bool,
+) -> None:
     """Generate an optional learning plan with unverified corpus candidates."""
     storage = Storage(db_path)
     chain = Ledger(storage)
@@ -539,6 +684,11 @@ def plan_generate(profile_path: Path, fmt: str, db_path: Path, seed_dir: Path | 
         {"plan_id": plan_doc["plan_id"], "db_plan_id": plan_doc["db_plan_id"], "format": fmt},
     )
 
+    # Redaction applies to the output copy only; the stored plan is
+    # untouched, so a redacted view can never destroy the record it hides.
+    if redacted:
+        plan_doc = redact_plan_doc(plan_doc)
+
     if fmt == "json":
         click.echo(json.dumps(plan_doc, indent=2))
     elif fmt == "md":
@@ -551,11 +701,18 @@ def plan_generate(profile_path: Path, fmt: str, db_path: Path, seed_dir: Path | 
 @click.argument("plan_id", type=int)
 @click.option("--db-path", type=click.Path(path_type=Path), default=str(DEFAULT_DB_PATH))
 @click.option("--format", "fmt", type=click.Choice(["json", "text", "md"]), default="json")
-def plan_show(plan_id: int, db_path: Path, fmt: str) -> None:
+@click.option(
+    "--redacted",
+    is_flag=True,
+    help="Redact the learner name, goals, and context from the output (#58, ADR 012).",
+)
+def plan_show(plan_id: int, db_path: Path, fmt: str, redacted: bool) -> None:
     """Retrieve an exact stored plan by database ID, including historical projections."""
     doc = Storage(db_path).get_plan(plan_id)
     if doc is None:
         raise click.ClickException("Plan not found")
+    if redacted:
+        doc = redact_plan_doc(doc)
     click.echo(
         json.dumps(doc, indent=2)
         if fmt == "json"

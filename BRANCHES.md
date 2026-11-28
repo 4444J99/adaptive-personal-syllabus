@@ -39,16 +39,17 @@ Verified at main `524f57ab` (2026-11-22): every remote branch is accounted for i
 | #44 (MTR-013) | no branch yet — unclaimed | — | main | Unclaimed; #45/#46/#47 chain-gated on #44's decision |
 | #45, #46, #47 (MTR-014/015/016) | no branch yet — unclaimed | — | main | Unclaimed; chain-gated on #44 |
 | #48 (MTR-017) | work/mentor/source-admission | `8ee1538f` | main | In progress (this PR); source admission record |
-| #49–#69 (MTR-019–MTR-038, except #50/#51/#52/#53/#54/#55/#56/#57/#68) | no branch yet — unclaimed | — | main | Unclaimed (planned) |
+| #49–#69 (MTR-019–MTR-038, except #50/#51/#52/#53/#54/#55/#56/#57/#58/#68) | no branch yet — unclaimed | — | main | Unclaimed (planned) |
 | #50 (MTR-020) | work/mentor/source-support | `783ab21b` | main | Merged via PR #95 (`9c3243f1`); span grounding, reviewer allowlist, judgment invalidation, judgments in plans |
 | #51 (MTR-021) | work/mentor/encounter-loop | `ae1d7680` | main | Merged via PR #97 (`b888f586`); encounter completion receipt (`encounter.receipt`), justified next step, no-response leaves mastery unassessed |
 | #53 (MTR-025) | work/mentor/version-contract | `9c3243f1` | main | Merged via PR #96 (`ae1d7680`); versioned compatibility promise (ADR 008), single version source, schema-version matrix, DB marker |
 | #55 (MTR-023) | work/mentor/output-authorship | `b888f586` | main | Merged via PR #98 (`6965aa8e`); revoke/deny + publish step, learner-words attachment, per-line attribution (ADR 009) |
 | #56 (MTR-024) | work/mentor/accessible-interface | `6965aa8e` | main | Merged via PR #99 (`24ec976c`); CLI-as-is decision, width-aware wrapping of learner-facing terminal text (ADR 010) |
-| #57 (MTR-026) | work/mentor/release-artifact | `24ec976c` | main | In progress (this PR); GitHub release artifact — wheel + sdist + SHA256SUMS + dependency bill, reproducibility check, quick-start (ADR 011) |
+| #57 (MTR-026) | work/mentor/release-artifact | `24ec976c` | main | Merged via PR #100 (`ac5e6288`); GitHub release artifact — wheel + sdist + SHA256SUMS + dependency bill, reproducibility check, quick-start (ADR 011) |
+| #58 (MTR-027) | work/mentor/operating-readiness | `ac5e6288` | main | In progress (this PR); operating evidence — backup/restore/deletion/status, redacted plan output, $0 budget + 168h backup bound (ADR 012) |
 | #68 (MTR-037) | no branch yet — unclaimed | — | main | Unclaimed (planned) |
 | #52 (MTR-022) | work/mentor/ledger-consistency | `96459abc` | main | Merged via PR #91 (`8f9685c5`); ledger checkpoint + atomic plan-generate; corpus ingest already atomic at this head (verified, no change); docs.audit / artifact appends named-why, not re-transactioned |
-| #54 (MTR-018) | work/mentor/live-source-loop | `8f9685c5` (base refreshed at PR time: PR #91 merged first) | main | In progress (this PR); live-source refresh loop |
+| #54 (MTR-018) | work/mentor/live-source-loop | `8f9685c5` (base refreshed at PR time: PR #91 merged first) | main | Merged via PR #92 (`8ee1538f`); live-source refresh loop — source_records/versions/refresh_runs, per-source freshness, planner excludes missing/revoked |
 | — (no owning issue recorded) | fix/ledger-malformed-payload-integrity-failure-14391782578113217034 | `dc0341d` | main | Merged via PR #74 (`cc39b56`); branch content verified identical on main (2/2 files) |
 | — (no owning issue recorded) | chore/pin-runner-ubuntu-2404-20261012 | `a7c20a1` | main | Merged via PR #75 (`5659bee4`, runner pin, Anthony-approved Oct 12); the follow-up ruff `--fix` hunks are superseded by later main work |
 | — (no owning issue recorded) | chore/remove-third-party-transcript | `75f700e` | main | Merged via PR #76 (`3ba1c28`); the committed runtime `.db` blob exists only on the branch and must not be merged |

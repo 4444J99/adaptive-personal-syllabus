@@ -1,0 +1,20 @@
+# Operating budget — adaptive-personal-syllabus #58 (MTR-027, ADR 012).
+#
+# The checkable record of the operating decision. `syllabus ops status`
+# reads these values back (or its built-in working copy, which the test
+# suite asserts agrees with this file); a bound that can drift silently
+# is not a bound.
+schema_version: "1.0"
+issue: 58
+adr: docs/adr/012-operating-evidence.md
+operating_owner: "Anthony James Padavano (4444J99)"
+alert_channel: "local-only: `syllabus ops status` non-zero exit plus a ledger receipt"
+budget_usd_per_month: 0
+budget_basis: "Local offer only: the store runs on the operator's own machine; no paid service is in the loop (CI is GitHub's free tier for public repos)."
+budget_reopen_condition: "Adding any hosted service or paid API re-opens this budget with the new number recorded here, not as a comment in a PR."
+max_backup_age_hours: 168
+reliability_objective: "Store integrity verifiable on every run: PRAGMA integrity_check returns ok and `ledger verify` passes; `syllabus ops status` exits non-zero otherwise."
+freshness_objective: "Per-source max age from #54 (default 168h); a source whose last good retrieval is older than its bound reads stale and `ops status` fails."
+degradation_trigger: "Any `syllabus ops status` check failing: pause new ingestion/generation until green; rollback is `syllabus ops restore` from the last verified backup."
+uptime_promise: null
+uptime_note: "No uptime promise is made: the local offer runs on one machine the project does not control, and no measurement exists that could honestly support a percentage."

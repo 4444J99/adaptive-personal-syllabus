@@ -18,6 +18,8 @@
 # re-verified against live main 363c7b1c4eba8c82159cd37397962a67a243e612.
 # Amended by #36 (MTR-010, ADR 006): docs/claims/** entry added;
 # re-verified against live main 8dc861bcdc0d0792e0685ba577ee566b36a455a2.
+# Amended by #58 (MTR-027, ADR 012): runbooks/** entry added;
+# re-verified against live main ac5e6288a294c76e0d59427c86891b45e81c892b.
 schema_version: "1.0"
 repo: adaptive-personal-syllabus
 verified_at_head: 8dc861bcdc0d0792e0685ba577ee566b36a455a2
@@ -51,6 +53,10 @@ entries:
   - patterns: ["docs/implementation/**"]
     class: public
     evidence: "Public implementation docs and audit reports, generated from the public tree"
+    disposition: keep
+  - patterns: ["runbooks/**"]
+    class: public
+    evidence: "Public operating runbooks (backup/restore/deletion/alert drills, ADR 012, #58 MTR-027)"
     disposition: keep
   - patterns: ["docs/pitch/*"]
     class: public
