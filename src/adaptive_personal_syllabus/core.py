@@ -377,6 +377,24 @@ def _render_assistant_example(encounter: dict[str, Any]) -> list[str]:
     return lines
 
 
+def _render_source_support(module: dict[str, Any]) -> list[str]:
+    """Per-module source attribution: the live support status, never a hardcoded line.
+
+    The module's ``source_selection`` (planner.py) carries the worst live
+    judgment status for the module's selected sources, or
+    ``source_support_unverified`` when no human-reviewed support is
+    attached. A module without a ``source_selection`` (a historical plan)
+    reports unverified rather than inventing support.
+    """
+    selection = module.get("source_selection") or {}
+    status = str(selection.get("claim_support_status") or "source_support_unverified")
+    lines = [f"Source support: {status}"]
+    missing = selection.get("missing_support")
+    if missing:
+        lines.append(f"Source support note: {missing}")
+    return lines
+
+
 def _render_plan_text(plan_doc: dict[str, Any]) -> str:
     lines = [
         f"Plan: {plan_doc['title']} ({plan_doc['plan_id']})",
@@ -650,8 +668,20 @@ def _write_artifact_exclusive(output: Path, data: bytes) -> None:
 @click.argument("plan_id", type=int)
 @click.option("--wing", required=True, type=click.Choice([w["wing_id"] for w in WINGS]))
 @click.option("--output", required=True, type=click.Path(path_type=Path))
+@click.option(
+    "--learner-words-file",
+    type=click.Path(path_type=Path, exists=True, dir_okay=False),
+    default=None,
+    help="File of learner-written prose to attach verbatim as a learner-authored section.",
+)
 @click.option("--db-path", type=click.Path(path_type=Path), default=str(DEFAULT_DB_PATH))
-def plan_artifact(plan_id: int, wing: str, output: Path, db_path: Path) -> None:
+def plan_artifact(
+    plan_id: int,
+    wing: str,
+    output: Path,
+    learner_words_file: Path | None,
+    db_path: Path,
+) -> None:
     """Write an assistant-authored working sheet for one selected Wing; never publish."""
     import hashlib
 
@@ -659,9 +689,26 @@ def plan_artifact(plan_id: int, wing: str, output: Path, db_path: Path) -> None:
     doc = storage.get_plan(plan_id)
     if doc is None or wing not in doc.get("output_policy", {}).get("selected_wings", []):
         raise click.ClickException("Wing is not selected in this plan")
+    learner_words_sha256 = None
+    learner_words_text = None
+    if learner_words_file is not None:
+        try:
+            learner_words_bytes = learner_words_file.read_bytes()
+        except OSError as exc:
+            raise click.ClickException(f"Cannot read learner words: {exc.strerror}") from exc
+        if not learner_words_bytes:
+            raise click.ClickException("Learner words file is empty")
+        try:
+            learner_words_text = learner_words_bytes.decode("utf-8")
+        except UnicodeDecodeError as exc:
+            raise click.ClickException("Learner words must be UTF-8 text") from exc
+        learner_words_sha256 = hashlib.sha256(learner_words_bytes).hexdigest()
     lines = [
         f"# {wing} working sheet",
-        "Assistant-authored scaffold; not learner-authored work.",
+        (
+            "Attribution: assistant scaffold; source support stated per module; "
+            "learner-authored text appears only in the learner section, when supplied."
+        ),
         "This is a local artifact. No publication is authorized.",
     ]
     for module in doc["modules"]:
@@ -671,8 +718,17 @@ def plan_artifact(plan_id: int, wing: str, output: Path, db_path: Path) -> None:
                 "## " + module["title"],
                 *module["encounter"]["steps"],
                 *_render_assistant_example(module["encounter"]),
-                "Learner words: [not supplied]",
-                "Source support: unverified",
+                *_render_source_support(module),
+            ]
+        )
+    if learner_words_text is not None:
+        lines.extend(
+            [
+                "",
+                "## Learner-authored prose",
+                "Authorship: learner — words copied exactly as supplied, never rewritten.",
+                "",
+                learner_words_text,
             ]
         )
     data = ("\n".join(lines) + "\n").encode()
@@ -692,6 +748,7 @@ def plan_artifact(plan_id: int, wing: str, output: Path, db_path: Path) -> None:
         "sha256": hashlib.sha256(data).hexdigest(),
         "status": "generated_local",
         "publication_authorized": False,
+        "learner_words_sha256": learner_words_sha256,
     }
     Ledger(storage).append("artifact.generate", receipt)
     click.echo(json.dumps(receipt))
@@ -723,6 +780,139 @@ def authorize_publication(
         "publication_status": "not_published",
     }
     Ledger(Storage(db_path)).append("artifact.publication_authorization", receipt)
+    click.echo(json.dumps(receipt))
+
+
+def _latest_publication_decision(
+    storage: Storage, artifact_sha256: str, destination: str
+) -> tuple[str, dict[str, Any]] | None:
+    """The latest ledger decision for exact bytes + destination, or None.
+
+    Authorization and revocation are both decisions about the same pair;
+    the latest event wins. Returns the event type and its payload, or
+    None when no event names this pair. A malformed payload is skipped:
+    the ledger chain verifier flags it separately, and it must not read
+    as an authorization here.
+    """
+    latest: tuple[str, dict[str, Any]] | None = None
+    for event in storage.iter_ledger_events():
+        event_type = str(event.get("event_type"))
+        if event_type not in (
+            "artifact.publication_authorization",
+            "artifact.publication_revocation",
+        ):
+            continue
+        try:
+            payload = json.loads(str(event.get("payload_json")))
+        except (TypeError, ValueError):
+            continue
+        if not isinstance(payload, dict):
+            continue
+        if (
+            payload.get("artifact_sha256") == artifact_sha256
+            and payload.get("destination") == destination
+        ):
+            latest = (event_type, payload)
+    return latest
+
+
+@plan.command("revoke-publication")
+@click.argument("artifact", type=click.Path(path_type=Path, exists=True, dir_okay=False))
+@click.option("--destination", required=True)
+@click.option("--reason", required=True, help="Why this authorization is revoked or denied.")
+@click.option("--db-path", type=click.Path(path_type=Path), default=str(DEFAULT_DB_PATH))
+def revoke_publication(
+    artifact: Path, destination: str, reason: str, db_path: Path
+) -> None:
+    """Record a revocation (or denial) for exact bytes and destination; publishes nothing.
+
+    The revocation is the latest decision for the pair, so `plan publish`
+    refuses until a later authorization supersedes it. Recording a
+    revocation before any authorization is a denial; after one, a revoke.
+    """
+    import hashlib
+
+    if not destination.strip():
+        raise click.ClickException("--destination must name the intended destination")
+    if not reason.strip():
+        raise click.ClickException("--reason must say why the authorization is revoked or denied")
+    try:
+        data = artifact.read_bytes()
+    except OSError as exc:
+        raise click.ClickException(f"Cannot read artifact: {exc.strerror}") from exc
+    receipt = {
+        "artifact_sha256": hashlib.sha256(data).hexdigest(),
+        "destination": destination,
+        "reason": reason,
+        "publication_authorized": False,
+        "publication_status": "not_published",
+    }
+    Ledger(Storage(db_path)).append("artifact.publication_revocation", receipt)
+    click.echo(json.dumps(receipt))
+
+
+@plan.command("publish")
+@click.argument("artifact", type=click.Path(path_type=Path, exists=True, dir_okay=False))
+@click.option(
+    "--destination",
+    required=True,
+    help="Existing directory the authorized bytes are copied to.",
+)
+@click.option("--db-path", type=click.Path(path_type=Path), default=str(DEFAULT_DB_PATH))
+def publish_artifact(artifact: Path, destination: str, db_path: Path) -> None:
+    """Copy authorized artifact bytes to a destination; refuses without a live authorization.
+
+    The latest ledger decision for the exact bytes and destination must be
+    an authorization; a missing, denied, or revoked authorization refuses
+    with no copy and no receipt. The copy is byte-for-byte the authorized
+    file, written exclusively so it never overwrites an existing path.
+    """
+    import hashlib
+
+    if not destination.strip():
+        raise click.ClickException("--destination must name the intended destination")
+    dest_dir = Path(destination)
+    if not dest_dir.is_dir():
+        raise click.ClickException("--destination must be an existing directory")
+    try:
+        data = artifact.read_bytes()
+    except OSError as exc:
+        raise click.ClickException(f"Cannot read artifact: {exc.strerror}") from exc
+    artifact_sha256 = hashlib.sha256(data).hexdigest()
+    storage = Storage(db_path)
+    decision = _latest_publication_decision(storage, artifact_sha256, destination)
+    if decision is None:
+        raise click.ClickException(
+            "No publication authorization for these exact bytes and destination"
+        )
+    event_type, payload = decision
+    if event_type == "artifact.publication_revocation":
+        reason = str(payload.get("reason") or "no reason recorded")
+        raise click.ClickException(
+            "Publication revoked for these exact bytes and destination: " + reason
+        )
+    if not payload.get("publication_authorized"):
+        raise click.ClickException(
+            "Publication denied for these exact bytes and destination"
+        )
+    target = dest_dir / artifact.name
+    try:
+        _write_artifact_exclusive(target, data)
+    except FileExistsError as exc:
+        raise click.ClickException(
+            f"Publication already exists at {target}; publishing again would replace it"
+        ) from exc
+    except OSError as exc:
+        raise click.ClickException(
+            f"Cannot publish artifact to {target}: {exc.strerror}."
+        ) from exc
+    receipt = {
+        "artifact_sha256": artifact_sha256,
+        "destination": destination,
+        "published_path": str(target.resolve()),
+        "publication_status": "published",
+    }
+    Ledger(storage).append("artifact.publication", receipt)
     click.echo(json.dumps(receipt))
 
 

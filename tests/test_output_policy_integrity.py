@@ -115,8 +115,10 @@ def test_authorization_is_bound_to_bytes_and_never_changes_plan(prepared, tmp_pa
     result = runner.invoke(cli, artifact_args(storage, plan, artifact))
     assert result.exit_code == 0, result.output
     generated = artifact.read_bytes()
-    assert b"Assistant-authored scaffold; not learner-authored work" in generated
-    assert b"Learner words: [not supplied]" in generated
+    assert b"Attribution: assistant scaffold" in generated
+    assert b"Source support: source_support_unverified" in generated
+    assert b"Source support note: No human-reviewed claim support is attached." in generated
+    assert b"Learner words: [not supplied]" not in generated
     assert plan["modules"][0]["encounter"]["self_contained_example"].encode() in generated
     assert b"independent practice in inspecting a claim" in generated
     assert b"PRIVATE_CONTEXT_NOT_FOR_OUTPUT" not in generated
@@ -287,3 +289,210 @@ def test_interrupted_artifact_is_never_published_and_can_retry(prepared, tmp_pat
     retry = CliRunner().invoke(cli, artifact_args(storage, plan, output))
     assert retry.exit_code == 0, retry.output
     assert json.loads(retry.output)["sha256"] == hashlib.sha256(output.read_bytes()).hexdigest()
+
+
+def _authorize_args(storage, artifact, destination):
+    return [
+        "plan",
+        "authorize-publication",
+        str(artifact),
+        "--destination",
+        destination,
+        "--authorize",
+        "--db-path",
+        str(storage.db_path),
+    ]
+
+
+def _revoke_args(storage, artifact, destination, reason):
+    return [
+        "plan",
+        "revoke-publication",
+        str(artifact),
+        "--destination",
+        destination,
+        "--reason",
+        reason,
+        "--db-path",
+        str(storage.db_path),
+    ]
+
+
+def _publish_args(storage, artifact, destination):
+    return [
+        "plan",
+        "publish",
+        str(artifact),
+        "--destination",
+        str(destination),
+        "--db-path",
+        str(storage.db_path),
+    ]
+
+
+def _generated_artifact(prepared, tmp_path):
+    storage, plan = prepared
+    artifact = tmp_path / "academic.md"
+    result = CliRunner().invoke(cli, artifact_args(storage, plan, artifact))
+    assert result.exit_code == 0, result.output
+    return storage, plan, artifact
+
+
+def test_publish_without_authorization_refuses(prepared, tmp_path):
+    storage, _, artifact = _generated_artifact(prepared, tmp_path)
+    destination = tmp_path / "out"
+    destination.mkdir()
+    before = storage.iter_ledger_events()
+    result = CliRunner().invoke(cli, _publish_args(storage, artifact, destination))
+    assert result.exit_code == 1
+    assert "No publication authorization" in result.output
+    assert not (destination / artifact.name).exists()
+    assert storage.iter_ledger_events() == before
+
+
+def test_authorize_then_publish_copies_exact_bytes(prepared, tmp_path):
+    storage, _, artifact = _generated_artifact(prepared, tmp_path)
+    destination = tmp_path / "out"
+    destination.mkdir()
+    runner = CliRunner()
+    auth = runner.invoke(cli, _authorize_args(storage, artifact, str(destination)))
+    assert auth.exit_code == 0, auth.output
+    result = runner.invoke(cli, _publish_args(storage, artifact, destination))
+    assert result.exit_code == 0, result.output
+    receipt = json.loads(result.output)
+    assert receipt["publication_status"] == "published"
+    assert receipt["artifact_sha256"] == hashlib.sha256(artifact.read_bytes()).hexdigest()
+    assert receipt["destination"] == str(destination)
+    published = destination / artifact.name
+    assert published.read_bytes() == artifact.read_bytes()
+    events = [e for e in storage.iter_ledger_events() if e["event_type"] == "artifact.publication"]
+    assert len(events) == 1
+    assert json.loads(events[0]["payload_json"]) == receipt
+
+
+def test_authorization_for_another_destination_does_not_publish(prepared, tmp_path):
+    storage, _, artifact = _generated_artifact(prepared, tmp_path)
+    destination = tmp_path / "out"
+    destination.mkdir()
+    runner = CliRunner()
+    auth = runner.invoke(cli, _authorize_args(storage, artifact, "elsewhere"))
+    assert auth.exit_code == 0, auth.output
+    before = storage.iter_ledger_events()
+    result = runner.invoke(cli, _publish_args(storage, artifact, destination))
+    assert result.exit_code == 1
+    assert "No publication authorization" in result.output
+    assert not (destination / artifact.name).exists()
+    assert storage.iter_ledger_events() == before
+
+
+def test_revoke_before_authorization_denies_publish(prepared, tmp_path):
+    storage, _, artifact = _generated_artifact(prepared, tmp_path)
+    destination = tmp_path / "out"
+    destination.mkdir()
+    runner = CliRunner()
+    revoke = runner.invoke(
+        cli,
+        _revoke_args(
+            storage, artifact, str(destination), "never intended for this destination"
+        ),
+    )
+    assert revoke.exit_code == 0, revoke.output
+    revoke_receipt = json.loads(revoke.output)
+    assert revoke_receipt["publication_authorized"] is False
+    assert revoke_receipt["publication_status"] == "not_published"
+    before = storage.iter_ledger_events()
+    result = runner.invoke(cli, _publish_args(storage, artifact, destination))
+    assert result.exit_code == 1
+    assert "revoked" in result.output
+    assert "never intended for this destination" in result.output
+    assert not (destination / artifact.name).exists()
+    assert storage.iter_ledger_events() == before
+
+
+def test_authorize_then_revoke_blocks_publish(prepared, tmp_path):
+    storage, _, artifact = _generated_artifact(prepared, tmp_path)
+    destination = tmp_path / "out"
+    destination.mkdir()
+    runner = CliRunner()
+    auth = runner.invoke(cli, _authorize_args(storage, artifact, str(destination)))
+    assert auth.exit_code == 0, auth.output
+    revoke = runner.invoke(
+        cli, _revoke_args(storage, artifact, str(destination), "withdrawn by the learner")
+    )
+    assert revoke.exit_code == 0, revoke.output
+    before = storage.iter_ledger_events()
+    result = runner.invoke(cli, _publish_args(storage, artifact, destination))
+    assert result.exit_code == 1
+    assert "revoked" in result.output
+    assert "withdrawn by the learner" in result.output
+    assert not (destination / artifact.name).exists()
+    assert storage.iter_ledger_events() == before
+
+
+def test_publish_refuses_modified_bytes(prepared, tmp_path):
+    storage, _, artifact = _generated_artifact(prepared, tmp_path)
+    destination = tmp_path / "out"
+    destination.mkdir()
+    runner = CliRunner()
+    auth = runner.invoke(cli, _authorize_args(storage, artifact, str(destination)))
+    assert auth.exit_code == 0, auth.output
+    artifact.write_bytes(artifact.read_bytes() + b"Changed after authorization.\n")
+    before = storage.iter_ledger_events()
+    result = runner.invoke(cli, _publish_args(storage, artifact, destination))
+    assert result.exit_code == 1
+    assert "No publication authorization" in result.output
+    assert not (destination / artifact.name).exists()
+    assert storage.iter_ledger_events() == before
+
+
+def test_publish_refuses_existing_publication(prepared, tmp_path):
+    storage, _, artifact = _generated_artifact(prepared, tmp_path)
+    destination = tmp_path / "out"
+    destination.mkdir()
+    runner = CliRunner()
+    auth = runner.invoke(cli, _authorize_args(storage, artifact, str(destination)))
+    assert auth.exit_code == 0, auth.output
+    first = runner.invoke(cli, _publish_args(storage, artifact, destination))
+    assert first.exit_code == 0, first.output
+    published = destination / artifact.name
+    assert published.read_bytes() == artifact.read_bytes()
+    second = runner.invoke(cli, _publish_args(storage, artifact, destination))
+    assert second.exit_code == 1
+    assert "already exists" in second.output
+    assert published.read_bytes() == artifact.read_bytes()
+
+
+def test_learner_words_attachment_round_trip(prepared, tmp_path):
+    storage, plan = prepared
+    words = tmp_path / "my_words.txt"
+    words.write_text("These are my own words, written by the learner.\n")
+    output = tmp_path / "with_words.md"
+    result = CliRunner().invoke(
+        cli, [*artifact_args(storage, plan, output), "--learner-words-file", str(words)]
+    )
+    assert result.exit_code == 0, result.output
+    receipt = json.loads(result.output)
+    assert receipt["learner_words_sha256"] == hashlib.sha256(words.read_bytes()).hexdigest()
+    text = output.read_text()
+    assert "## Learner-authored prose" in text
+    assert "Authorship: learner" in text
+    assert "These are my own words, written by the learner." in text
+    assert "Source support: source_support_unverified" in text
+    plain = tmp_path / "plain.md"
+    result = CliRunner().invoke(cli, artifact_args(storage, plan, plain))
+    assert result.exit_code == 0, result.output
+    assert json.loads(result.output)["learner_words_sha256"] is None
+    assert "## Learner-authored prose" not in plain.read_text()
+    assert "Learner words: [not supplied]" not in plain.read_text()
+
+
+def test_private_profile_context_never_reaches_artifact_bytes(prepared, tmp_path):
+    storage, plan = prepared
+    output = tmp_path / "leak.md"
+    result = CliRunner().invoke(cli, artifact_args(storage, plan, output))
+    assert result.exit_code == 0, result.output
+    generated = output.read_bytes()
+    assert b"PRIVATE_CONTEXT_NOT_FOR_OUTPUT" not in generated
+    assert b"Planner Test" not in generated
+    assert b"Build a recursive system" not in generated
+    assert json.dumps({"private": "PRIVATE_CONTEXT_NOT_FOR_OUTPUT"}).encode() not in generated
