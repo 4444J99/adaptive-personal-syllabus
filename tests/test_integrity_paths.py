@@ -237,7 +237,8 @@ def test_cli_output_policy_and_artifact(setup, tmp_path, wings):
     )
     assert result.exit_code == (0 if wings else 1), result.output
     if wings:
-        assert "Learner words: [not supplied]" in output.read_text()
+        assert "Source support: source_support_unverified" in output.read_text()
+        assert "Learner words: [not supplied]" not in output.read_text()
         assert json.loads(result.output)["publication_authorized"] is False
         authorization = runner.invoke(
             cli,
