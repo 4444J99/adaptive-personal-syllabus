@@ -9,12 +9,15 @@ import re
 from pathlib import Path
 from typing import Any
 
+from koinonia_db.constants import ORGAN_MAP
+
 from .admission import redact_rel_path
 from .encounter import adapt_encounter
 from .freshness import EXCLUDED_STATES, summarize_snapshot_freshness
 from .generator import SyllabusGenerator
 from .ledger import Ledger
 from .models import DifficultyLevel, LearnerProfile, PersonalizationRule
+from .slices import REGISTRY_DIR, slice_modules_for
 from .storage import Storage
 from .support import summarize_judgments, worst_support_status
 from .versions import PLAN_SCHEMA_VERSION
@@ -82,10 +85,17 @@ DEFAULT_PERSONALIZATION_RULES: list[PersonalizationRule] = [
 class Planner:
     """Generate persisted, profile-aware plans with stable JSON output."""
 
-    def __init__(self, storage: Storage, ledger: Ledger, seed_dir: Path | None = None) -> None:
+    def __init__(
+        self,
+        storage: Storage,
+        ledger: Ledger,
+        seed_dir: Path | None = None,
+        slice_dir: Path | None = None,
+    ) -> None:
         self.storage = storage
         self.ledger = ledger
         self.seed_dir = seed_dir
+        self.slice_dir = slice_dir
 
     @staticmethod
     def _load_profile(profile_path: Path) -> dict[str, Any]:
@@ -196,6 +206,28 @@ class Planner:
 
         generator = SyllabusGenerator(seed_dir=self.seed_dir)
         path = generator.generate(learner)
+
+        # Domain slices (#59, MTR-028): a slice module joins the plan only
+        # when the profile names its domain. The organ generator never sees
+        # slices (world studies is not an organ), so the merge happens here,
+        # before module rows are built, and slice modules flow through the
+        # same source selection, adaptation, fingerprint and persistence as
+        # organ modules. Slice modules are new by construction, so none is
+        # completed; total_modules grows by exactly the slice count, matching
+        # the generator's own pre-filter accounting.
+        slice_slugs = [
+            ORGAN_MAP.get(code, str(code).lower()) for code in learner.organs_of_interest
+        ]
+        slice_modules = [
+            module
+            for module in slice_modules_for(
+                slice_slugs, self.slice_dir if self.slice_dir is not None else REGISTRY_DIR
+            )
+            if module.module_id not in learner.completed_modules
+            and module.module_id not in {m.module_id for m in path.modules}
+        ]
+        path.modules.extend(slice_modules)
+        learner.total_modules += len(slice_modules)
 
         snapshot = self.storage.latest_snapshot()
         if snapshot is None:
