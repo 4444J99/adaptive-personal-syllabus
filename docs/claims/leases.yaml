@@ -278,3 +278,22 @@ grant_history:
     expiry: "2026-11-30T12:00:00Z"
     receipt: "Lease grant on #21 (comment 7233118957; scope amended comment 7233158733)"
     status: granted
+
+  - sequence: 13
+    grantee: ranked-queue-build
+    issue: 56
+    base: 6965aa8e8682ce9cbcf9b3970b37d038710987a0
+    head: 6965aa8e8682ce9cbcf9b3970b37d038710987a0
+    branch: work/mentor/accessible-interface
+    scope:
+      - src/adaptive_personal_syllabus/core.py
+      - tests/test_terminal_width.py
+      - docs/adr/010-phone-terminal-width.md
+      - docs/claims/leases.yaml
+      - BRANCHES.md
+      - CHANGELOG.md
+      - docs/implementation/docs-audit-report.json
+      - docs/implementation/docs-audit-roadmap.md
+    expiry: "2026-11-30T12:00:00Z"
+    receipt: "Lease grant on #21 (comment 7234666583)"
+    status: granted
