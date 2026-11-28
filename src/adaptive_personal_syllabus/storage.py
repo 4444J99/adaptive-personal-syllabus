@@ -407,6 +407,56 @@ class Storage:
             raise ValueError(f"No schema_version marker in {self.db_path}")
         return int(str(row[0]))
 
+    def integrity_check(self) -> list[str]:
+        """Run SQLite's integrity check; `["ok"]` is the only passing result.
+
+        #58 (MTR-027, ADR 012): the reliability objective is a store whose
+        integrity is verifiable on every run, so the check is a first-class
+        method, not a shell one-liner the operator has to remember.
+        """
+        # A corrupt store must fail the check, not crash the caller: a
+        # destroyed header raises on the first query, and that is a
+        # verdict (the store is not verifiable), not an exception to leak.
+        try:
+            with self.connection() as conn:
+                rows = conn.execute("PRAGMA integrity_check").fetchall()
+        except sqlite3.Error as exc:
+            return [f"error: {exc}"]
+        return [str(row[0]) for row in rows]
+
+    def delete_profile(self, profile_id: int) -> dict[str, int]:
+        """Delete one learner profile and its dependent plans (#58, ADR 012).
+
+        Deletes the stored plan payloads for the profile's plans first:
+        `plan_payloads.plan_id` has no ON DELETE CASCADE, so relying on the
+        profile cascade alone would trip the foreign key. `plan_modules`
+        cascades from `plans`, `hook_runs` nulls its plan reference, and
+        `plans` cascades from `profiles`. Ledger events are untouched — the
+        ledger is append-only (#52), and the deletion receipt (appended by
+        the caller) explains the deletion instead of rewriting history.
+        Returns counts; a missing profile deletes nothing.
+        """
+        with self.connection() as conn:
+            plan_ids = [
+                int(row[0])
+                for row in conn.execute(
+                    "SELECT id FROM plans WHERE profile_id = ?", (profile_id,)
+                ).fetchall()
+            ]
+            if plan_ids:
+                placeholders = ",".join("?" for _ in plan_ids)
+                conn.execute(
+                    f"DELETE FROM plan_payloads WHERE plan_id IN ({placeholders})",
+                    plan_ids,
+                )
+            cur = conn.execute(
+                "DELETE FROM profiles WHERE id = ?", (profile_id,)
+            )
+            return {
+                "profiles_deleted": int(cur.rowcount),
+                "plans_deleted": len(plan_ids),
+            }
+
     def insert_snapshot(
         self,
         snapshot_name: str,

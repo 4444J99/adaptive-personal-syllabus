@@ -320,3 +320,27 @@ grant_history:
     expiry: "2026-11-30T12:00:00Z"
     receipt: "Lease grant on #21 (comment 7235908294; scope amended comment 7236031956 to add MANIFEST.in and docs/privacy-classification.yaml)"
     status: granted
+
+  - sequence: 15
+    grantee: ranked-queue-build
+    issue: 58
+    base: ac5e6288a294c76e0d59427c86891b45e81c892b
+    head: ac5e6288a294c76e0d59427c86891b45e81c892b
+    branch: work/mentor/operating-readiness
+    scope:
+      - src/adaptive_personal_syllabus/storage.py
+      - src/adaptive_personal_syllabus/core.py
+      - src/adaptive_personal_syllabus/operating.py
+      - tests/test_operating_readiness.py
+      - docs/adr/012-operating-evidence.md
+      - runbooks/
+      - docs/operating-budget.yaml
+      - docs/claims/leases.yaml
+      - docs/privacy-classification.yaml
+      - BRANCHES.md
+      - CHANGELOG.md
+      - docs/implementation/docs-audit-report.json
+      - docs/implementation/docs-audit-roadmap.md
+    expiry: "2026-11-30T12:00:00Z"
+    receipt: "Lease grant on #21 (comment 7237296510)"
+    status: granted
