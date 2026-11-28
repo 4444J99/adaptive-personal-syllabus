@@ -659,6 +659,12 @@ def _render_plan_markdown(plan_doc: dict[str, Any]) -> str:
     default=None,
 )
 @click.option(
+    "--slice-dir",
+    type=click.Path(path_type=Path, exists=True, file_okay=False),
+    default=None,
+    help="Domain-slice registry directory (defaults to the checkout's data/slices).",
+)
+@click.option(
     "--redacted",
     is_flag=True,
     help="Redact the learner name, goals, and context from the output (#58, ADR 012).",
@@ -668,12 +674,13 @@ def plan_generate(
     fmt: str,
     db_path: Path,
     seed_dir: Path | None,
+    slice_dir: Path | None,
     redacted: bool,
 ) -> None:
     """Generate an optional learning plan with unverified corpus candidates."""
     storage = Storage(db_path)
     chain = Ledger(storage)
-    planner = Planner(storage=storage, ledger=chain, seed_dir=seed_dir)
+    planner = Planner(storage=storage, ledger=chain, seed_dir=seed_dir, slice_dir=slice_dir)
     try:
         plan_doc = planner.generate(profile_path=profile_path)
     except ValueError as exc:

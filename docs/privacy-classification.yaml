@@ -20,6 +20,8 @@
 # re-verified against live main 8dc861bcdc0d0792e0685ba577ee566b36a455a2.
 # Amended by #58 (MTR-027, ADR 012): runbooks/** entry added;
 # re-verified against live main ac5e6288a294c76e0d59427c86891b45e81c892b.
+# Amended by #59 (MTR-028, ADR 013): data/slices/** entry added;
+# re-verified against live main 680b6e593ea1dc017b7de0e397ebbad5d6b483eb.
 schema_version: "1.0"
 repo: adaptive-personal-syllabus
 verified_at_head: 8dc861bcdc0d0792e0685ba577ee566b36a455a2
@@ -85,6 +87,10 @@ entries:
   - patterns: ["data/*.json"]
     class: public
     evidence: "Synthetic sample data (Beginner Explorer learner, no real person)"
+    disposition: keep
+  - patterns: ["data/slices/**"]
+    class: public
+    evidence: "Public-domain source excerpt (Herodotus, Rawlinson trans., Wikisource revid 7044570) + slice registry (ADR 013, #59 MTR-028)"
     disposition: keep
   - patterns: ["ecosystem/**"]
     class: public

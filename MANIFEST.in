@@ -3,3 +3,7 @@
 # a stranger needs no checkout to run `plan generate --seed-dir`.
 # Wheels are unaffected — MANIFEST.in only shapes the sdist.
 graft tests/fixtures/seed
+# Ship the first domain slice the same way (ADR 013, #59): the slice
+# registry + excerpt come from the release artifact, so a stranger can
+# run the slice with `plan generate --slice-dir` against the sdist tree.
+graft data/slices

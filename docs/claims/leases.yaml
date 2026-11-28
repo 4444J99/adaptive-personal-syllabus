@@ -344,3 +344,28 @@ grant_history:
     expiry: "2026-11-30T12:00:00Z"
     receipt: "Lease grant on #21 (comment 7237296510)"
     status: granted
+
+  - sequence: 16
+    grantee: ranked-queue-build
+    issue: 59
+    base: 680b6e593ea1dc017b7de0e397ebbad5d6b483eb
+    head: 680b6e593ea1dc017b7de0e397ebbad5d6b483eb
+    branch: work/mentor/first-domain-slice
+    scope:
+      - src/adaptive_personal_syllabus/slices.py
+      - src/adaptive_personal_syllabus/planner.py
+      - src/adaptive_personal_syllabus/core.py
+      - data/slices/
+      - tests/test_first_domain_slice.py
+      - docs/adr/013-first-domain-slice.md
+      - docs/claims/leases.yaml
+      - docs/privacy-classification.yaml
+      - BRANCHES.md
+      - CHANGELOG.md
+      - docs/implementation/docs-audit-report.json
+      - docs/implementation/docs-audit-roadmap.md
+      - MANIFEST.in
+      - .github/workflows/release.yml
+    expiry: "2026-11-30T12:00:00Z"
+    receipt: "Lease grant on #21 (comment 7238600972)"
+    status: granted
