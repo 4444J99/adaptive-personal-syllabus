@@ -5,6 +5,7 @@ from __future__ import annotations
 import json
 import os
 import tempfile
+import textwrap
 from pathlib import Path
 from typing import Any
 
@@ -367,6 +368,68 @@ def plan() -> None:
     """Plan generation commands."""
 
 
+def _terminal_width(minimum: int = 20) -> int | None:
+    """Live terminal width when stdout is a terminal, else None (ADR 010).
+
+    The width comes from the terminal itself (``os.get_terminal_size``
+    on stdout), never from the environment: the repo's public-surface
+    contract (ADR 005, #42) forbids ``os.environ``/``getenv`` in src
+    modules, and the tty reports the width directly. Piped output has
+    no terminal width, so it keeps the historical unwrapped bytes,
+    which the round-trip tests pin — the wrap is a display behavior for
+    a known terminal, not a change to what the commands emit. The
+    minimum keeps prose wrappable on very narrow terminals; below it no
+    wrap width is useful.
+    """
+    try:
+        columns = os.get_terminal_size(1).columns
+    except OSError:
+        return None
+    return max(minimum, columns or 80)
+
+
+def _wrap_terminal_lines(lines: list[str], width: int | None = None) -> list[str]:
+    """Wrap learner-facing prose lines to the terminal width (ADR 010).
+
+    Structural lines pass through unwrapped: blank lines, headings, and
+    ``**...**`` metadata lines (which carry fingerprints that must not
+    split across lines). List items wrap with a two-space continuation
+    indent so markdown lists stay valid. Words are never split, so a
+    line carrying a single unbreakable token (a fingerprint) stays whole
+    on its own line even past the width. When no width is known (piped
+    output), the lines pass through unchanged. JSON output
+    never passes through here — it is machine output and stays unwrapped.
+    """
+    if width is None:
+        width = _terminal_width()
+    if width is None:
+        return list(lines)
+    wrapped: list[str] = []
+    for line in lines:
+        if not line or line.startswith(("#", "**")) or len(line) <= width:
+            wrapped.append(line)
+            continue
+        if line.startswith("- "):
+            wrapped.extend(
+                textwrap.wrap(
+                    line, width=width, subsequent_indent="  ",
+                    break_long_words=False, break_on_hyphens=False,
+                )
+            )
+        else:
+            wrapped.extend(
+                textwrap.wrap(
+                    line, width=width, break_long_words=False, break_on_hyphens=False
+                )
+            )
+    return wrapped
+
+
+def _wrap_terminal_text(text: str, width: int | None = None) -> str:
+    """Wrap learner-facing terminal text to the terminal width (ADR 010)."""
+    return "\n".join(_wrap_terminal_lines(text.split("\n"), width))
+
+
 def _render_assistant_example(encounter: dict[str, Any]) -> list[str]:
     lines = ["Assistant explanation: " + encounter["self_contained_example"]]
     if encounter.get("example_scope") == "independent_claim_inspection_not_topic_instruction":
@@ -479,9 +542,9 @@ def plan_generate(profile_path: Path, fmt: str, db_path: Path, seed_dir: Path | 
     if fmt == "json":
         click.echo(json.dumps(plan_doc, indent=2))
     elif fmt == "md":
-        click.echo(_render_plan_markdown(plan_doc))
+        click.echo(_wrap_terminal_text(_render_plan_markdown(plan_doc)))
     else:
-        click.echo(_render_plan_text(plan_doc))
+        click.echo(_wrap_terminal_text(_render_plan_text(plan_doc)))
 
 
 @plan.command("show")
@@ -496,9 +559,9 @@ def plan_show(plan_id: int, db_path: Path, fmt: str) -> None:
     click.echo(
         json.dumps(doc, indent=2)
         if fmt == "json"
-        else _render_plan_markdown(doc)
+        else _wrap_terminal_text(_render_plan_markdown(doc))
         if fmt == "md"
-        else _render_plan_text(doc)
+        else _wrap_terminal_text(_render_plan_text(doc))
     )
 
 
@@ -577,7 +640,7 @@ def plan_encounter(
         lines.extend(_render_assistant_example(encounter))
     lines.append(payload["response_prompt"])
     lines.append(encounter["completion"])
-    click.echo("\n".join(lines))
+    click.echo("\n".join(_wrap_terminal_lines(lines)))
 
 
 @plan.command("encounter-complete")
