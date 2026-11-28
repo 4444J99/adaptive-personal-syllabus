@@ -96,6 +96,10 @@ entries:
     class: public
     evidence: "Build config (pyproject.toml)"
     disposition: keep
+  - patterns: ["MANIFEST.in"]
+    class: public
+    evidence: "Build config: sdist file list (ADR 011, #57 — grafts the synthetic seed into the sdist)"
+    disposition: keep
   - patterns: ["LICENSE"]
     class: public
     evidence: "MIT license"

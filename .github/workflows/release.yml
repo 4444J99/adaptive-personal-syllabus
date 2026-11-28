@@ -1,0 +1,172 @@
+# Release artifact (ADR 011, #57): a versioned artifact a stranger can
+# install and verify. The `build` job proves the wheel/sdist build
+# reproducibly from the head and install cleanly from the wheel alone.
+# The `release` job publishes only on a `v*` tag push — the tag is the
+# owner's call (ADR 008 Decision 8), so nothing in this file publishes
+# anything until he pushes a tag.
+name: Release artifact
+
+on:
+  pull_request:
+    branches: [main, master, develop]
+    paths:
+      - .github/workflows/release.yml
+      - pyproject.toml
+      - src/**
+      - docs/QUICKSTART.md
+  push:
+    branches: [main, master, develop]
+    paths:
+      - .github/workflows/release.yml
+      - pyproject.toml
+      - src/**
+      - docs/QUICKSTART.md
+    tags:
+      - "v*"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+
+      - name: Set up Python 3.12
+        uses: actions/setup-python@v7
+        with:
+          python-version: "3.12"
+          cache: pip
+
+      - name: Install build frontend
+        run: python -m pip install --upgrade pip build
+
+      # Reproducibility check (ADR 011 Decision 5): the same commit must
+      # always produce the same artifact contents. The wheel is
+      # byte-identical across builds; the sdist is content-identical (same
+      # members, same bytes) — setuptools does not normalize sdist tar
+      # member mtimes from SOURCE_DATE_EPOCH, so the raw .tar.gz bytes
+      # differ in envelope metadata only. Verified at main 24ec976c: two
+      # builds, wheel sha256 equal, sdist members equal, 15 envelope
+      # mtimes differing.
+      - name: Build twice, compare reproducibility
+        run: |
+          export SOURCE_DATE_EPOCH=$(git log -1 --format=%ct)
+          python -m build --outdir dist-a
+          python -m build --outdir dist-b
+          sha256sum dist-a/*.whl > SHA256SUMS-a.txt
+          sha256sum dist-b/*.whl > SHA256SUMS-b.txt
+          sed -i 's|dist-a/||' SHA256SUMS-a.txt
+          sed -i 's|dist-b/||' SHA256SUMS-b.txt
+          diff SHA256SUMS-a.txt SHA256SUMS-b.txt
+          echo "Wheel: byte-identical across builds."
+          python - <<'PY'
+          import hashlib
+          import tarfile
+          from pathlib import Path
+
+          def contents(path):
+              with tarfile.open(path) as tf:
+                  return {
+                      m.name: hashlib.sha256(tf.extractfile(m).read()).hexdigest()
+                      for m in tf.getmembers()
+                      if m.isfile()
+                  }
+
+          a = contents(next(Path("dist-a").glob("*.tar.gz")))
+          b = contents(next(Path("dist-b").glob("*.tar.gz")))
+          assert a == b, "sdist contents differ between builds"
+          print(f"Sdist: content-identical across builds ({len(a)} members).")
+          PY
+          mkdir -p dist
+          cp dist-a/* dist/
+          (cd dist && sha256sum * > SHA256SUMS)
+
+      # Clean-room install from the wheel alone (ADR 011, #57 step 5): no
+      # checkout install, no sibling clone, no credentials. The koinonia-db
+      # dependency resolves from the pinned git URL in pyproject.toml.
+      - name: Install the wheel in a fresh venv and verify it
+        run: |
+          python -m venv /tmp/release-venv
+          /tmp/release-venv/bin/python -m pip install --upgrade pip
+          /tmp/release-venv/bin/python -m pip install dist/*.whl
+          /tmp/release-venv/bin/syllabus version
+          /tmp/release-venv/bin/syllabus corpus ingest --root ./docs --snapshot release-check --db-path ./release-check.db
+          /tmp/release-venv/bin/syllabus profile init --name Learner --organs I --purpose evaluate --phone-only --output ./release-profile.json --db-path ./release-check.db
+          /tmp/release-venv/bin/syllabus plan generate --profile ./release-profile.json --seed-dir ./tests/fixtures/seed --format json --db-path ./release-check.db
+          /tmp/release-venv/bin/syllabus plan show 1 --format md --db-path ./release-check.db
+
+      - name: Upload release artifacts
+        uses: actions/upload-artifact@v7
+        with:
+          name: release-artifact
+          path: dist/
+
+  release:
+    needs: build
+    if: startsWith(github.ref, 'refs/tags/v')
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: write
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+
+      - name: Download the verified build
+        uses: actions/download-artifact@v7
+        with:
+          name: release-artifact
+          path: release-files
+
+      # Flatten whatever nesting the artifact upload preserved, so the
+      # released bytes are exactly the bytes the build job verified.
+      - name: Flatten the verified artifacts
+        run: |
+          mkdir -p release-dist
+          find release-files -type f \( -name '*.whl' -o -name '*.tar.gz' -o -name 'SHA256SUMS' \) -exec cp {} release-dist/ \;
+          ls -l release-dist
+          (cd release-dist && sha256sum -c SHA256SUMS)
+
+      - name: Set up Python 3.12
+        uses: actions/setup-python@v7
+        with:
+          python-version: "3.12"
+
+      # The dependency bill (ADR 011 Decision 1): exact resolved versions
+      # from a fresh install of the released wheel, so a verifier can
+      # reproduce the install that produced the published artifact.
+      - name: Capture the dependency bill
+        run: |
+          python -m venv /tmp/bill-venv
+          /tmp/bill-venv/bin/python -m pip install --upgrade pip
+          /tmp/bill-venv/bin/python -m pip install release-dist/*.whl
+          /tmp/bill-venv/bin/python -m pip freeze > release-dist/DEPENDENCY-BILL.txt
+
+      - name: Write the release notes
+        run: |
+          cat > /tmp/release-notes.md <<'EOF'
+          ## adaptive-personal-syllabus ${{ github.ref_name }}
+
+          - Source commit: ${{ github.sha }}
+          - Built by: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+          - Compatibility promise: ADR 008 (`docs/adr/008-version-compatibility.md`) — one authoritative version, the contract inventory, SemVer rules for the 0.x line.
+          - Rollback: publish a patch release that reverts the change; tags are never moved and published versions are never re-tagged (ADR 008 Decision 6).
+          - Verify: `sha256sum -c SHA256SUMS` after downloading the wheel and sdist, then follow `docs/QUICKSTART.md`.
+          - Dependency bill: `DEPENDENCY-BILL.txt` lists the exact resolved versions from a fresh install of this wheel.
+          EOF
+
+      - name: Create the GitHub release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release create "${{ github.ref_name }}" \
+            release-dist/*.whl release-dist/*.tar.gz release-dist/SHA256SUMS release-dist/DEPENDENCY-BILL.txt \
+            --title "adaptive-personal-syllabus ${{ github.ref_name }}" \
+            --notes-file /tmp/release-notes.md

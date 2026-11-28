@@ -1,0 +1,5 @@
+# Ship the synthetic seed fixture in the sdist (ADR 011, #57): the
+# quick-start's sample corpus comes from the release artifact itself, so
+# a stranger needs no checkout to run `plan generate --seed-dir`.
+# Wheels are unaffected — MANIFEST.in only shapes the sdist.
+graft tests/fixtures/seed
